@@ -1,0 +1,381 @@
+import * as THREE from 'three';
+
+// =============================================================
+// COMEDOR PERSONALIZADO: IMAGENES REALES + GUIAS APAGADAS EN NEGRO
+// Sustituye el modulo anterior sin cambiar su API para main.js.
+// =============================================================
+export function crearComedorRompecabezas(escena, camara, castillo, elemento, opciones = {}) {
+  // 01. CONFIGURACION, RUTAS Y ESTADO.
+  const puerta=castillo.userData.puertas.find(p=>p.nombre==='Comedor');
+  if(!puerta)throw new Error('No se encontró la puerta Comedor.');
+  const recursos={geometrias:new Set(),materiales:new Set(),texturas:new Set()};
+  const niveles=[{titulo:'Fácil · 9 piezas',cols:3,filas:3},{titulo:'Medio · 12 piezas',cols:4,filas:3},{titulo:'Difícil · 16 piezas',cols:4,filas:4}];
+  const baseCarpeta=new URL(opciones.carpetaImagenes||'./assets/imagen/rompecabezas/',document.baseURI);
+  if(!baseCarpeta.pathname.endsWith('/'))baseCarpeta.pathname+='/';
+  const urlCatalogo=new URL(opciones.catalogoImagenes||'imagenes.json',baseCarpeta);
+  const cacheImagenes=new Map();
+  let catalogo=[],cargandoCatalogo=false,promesaCatalogo=null,versionCatalogo=0;
+  let controles=null,oclusion=null,abierto=false,destruido=false;
+  const inv=new THREE.Matrix4(),local=new THREE.Vector3();castillo.updateMatrixWorld(true);inv.copy(castillo.matrixWorld).invert();
+  const protegidos=new Set();puerta.marco.traverse(o=>protegidos.add(o));
+  const dentro=v=>v.x>7.05&&v.x<19.95&&v.z>-1.95&&v.z<17.95&&v.y>3&&v.y<9.95;
+  const paleta=[0x31b4ae,0xe5bc59,0xdc8a70,0x729bb8];
+  const CW=1000,CH=1200;
+  let W=580,H=580*2/3,BX=210,BY=55,COLS=3,FILAS=3,PW=W/3,PH=H/3;
+  let imagen=null,piezas=[],seleccionada=null,arrastre=null,referencia=opciones.mostrarGuias===true,iniciado=false;
+  let retoActual=0,nivelActual=0,resueltas=0,movimientos=0,tiempoAcumulado=0,inicioTiempo=0,relojUI=0,terminado=false;
+  let cargandoImagen=false,versionPartida=0,solicitudImagen=null;
+  const abortarCatalogo=new AbortController();
+
+  // 02. VACIAR SOLO MUEBLES Y LUMINARIAS DEL COMEDOR.
+  const retirar=new Set(),muebles=/^(Mesa|Armario|Estanteria|Libros|Cama|Cabecera|Cadena candelabro|Brazo candelabro|Vela|Soporte antorcha)/i;
+  castillo.traverse(o=>{
+    if(protegidos.has(o))return;o.getWorldPosition(local).applyMatrix4(inv);if(!dentro(local))return;
+    if(o.isPointLight||(o.isMesh&&muebles.test(o.name))){retirar.add(o);return;}
+    if(o.isMesh&&o.material){const ms=Array.isArray(o.material)?o.material:[o.material];if(ms.some(m=>m?.emissive&&m.emissive.r>.2&&m.emissive.r>m.emissive.g))retirar.add(o);}
+  });
+  const descendientes=new Set();for(const o of retirar)o.traverse(c=>descendientes.add(c));
+  const colisiones=castillo.userData.colisiones;let colisionesRetiradas=0;
+  for(let i=colisiones.length-1;i>=0;i--)if(descendientes.has(colisiones[i].mesh)){colisiones.splice(i,1);colisionesRetiradas++;}
+  for(const o of retirar)o.removeFromParent();
+  const cierre=castillo.getObjectByName('Cierre frontal derecho');
+  if(cierre){const min=cierre.position.x-cierre.scale.x/2,max=cierre.position.x+cierre.scale.x/2;
+    if(min<20){const ancho=Math.max(0,max-20);
+      if(ancho>.01){cierre.scale.x=ancho;cierre.position.x=20+ancho/2;for(const c of colisiones)if(c.mesh===cierre)c.w=ancho;cierre.updateMatrix();cierre.updateWorldMatrix(true,false);}
+      else{for(let i=colisiones.length-1;i>=0;i--)if(colisiones[i].mesh===cierre)colisiones.splice(i,1);cierre.removeFromParent();}
+    }
+  }
+
+  // 03. FORMAS Y TEXTURAS TEMATICAS DE LA HABITACION.
+  function signo(c,r,t){return(c*7+r*11+t*3)%2===0?1:-1;}
+  function bordes(c,r,cols,filas){return{arriba:r===0?0:-signo(c,r-1,1),derecha:c===cols-1?0:signo(c,r,0),abajo:r===filas-1?0:signo(c,r,1),izquierda:c===0?0:-signo(c-1,r,0)};}
+  function rutaPuzzle(w,h,b){
+    const p=new Path2D();p.moveTo(0,0);
+    function lado(x1,y1,x2,y2,s){const dx=x2-x1,dy=y2-y1,L=Math.hypot(dx,dy),nx=dy/L,ny=-dx/L,k=Math.min(w,h)*.19*s;
+      const v=(t,d=0)=>[x1+dx*t+nx*d,y1+dy*t+ny*d];
+      if(!s){p.lineTo(x2,y2);return;}p.lineTo(...v(.35));p.bezierCurveTo(...v(.35,k*.15),...v(.30,k),...v(.50,k));p.bezierCurveTo(...v(.70,k),...v(.65,k*.15),...v(.65));p.lineTo(x2,y2);
+    }
+    lado(0,0,w,0,b.arriba);lado(w,0,w,h,b.derecha);lado(w,h,0,h,b.abajo);lado(0,h,0,0,b.izquierda);p.closePath();return p;
+  }
+  function texturaTema(tipo){
+    const c=document.createElement('canvas');c.width=c.height=512;const g=c.getContext('2d');
+    const colores=tipo==='suelo'?['#315c58','#2e5552','#244b4b','#476d5f']:tipo==='techo'?['#203542','#243d49','#233c47','#29424e']:['#e3dbc8','#d5cebb','#ded9cb','#c6d3c6'];
+    const n=tipo==='suelo'?2:4,t=512/n;g.fillStyle=colores[0];g.fillRect(0,0,512,512);
+    for(let r=0;r<n;r++)for(let col=0;col<n;col++){const p=rutaPuzzle(t,t,bordes(col,r,n,n));g.save();g.translate(col*t,r*t);g.fillStyle=colores[(col+r*3)%colores.length];g.fill(p);g.strokeStyle=tipo==='suelo'?'#a6a17d':tipo==='techo'?'#637a7b':'#a4aa98';g.lineWidth=tipo==='suelo'?2:1.6;g.stroke(p);g.restore();}
+    const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;tex.wrapS=tex.wrapT=THREE.RepeatWrapping;recursos.texturas.add(tex);return tex;
+  }
+  function mat(color,map=null){const m=new THREE.MeshBasicMaterial({color,map,toneMapped:false});recursos.materiales.add(m);return m;}
+  const matPared=mat(0xffffff,texturaTema('pared')),matSuelo=mat(0xffffff,texturaTema('suelo')),matTecho=mat(0xffffff,texturaTema('techo'));
+  const matMarco=mat(0x26454b),matDorado=mat(0xb7a16a),matLuz=mat(0xe3c988);
+  const grupo=new THREE.Group();grupo.name='Comedor rompecabezas';grupo.visible=false;castillo.add(grupo);
+  const cajaGeo=new THREE.BoxGeometry(1,1,1);recursos.geometrias.add(cajaGeo);
+  function panel(nombre,x,y,z,w,h,d,material){
+    const g=cajaGeo.clone(),uv=g.attributes.uv,caras=[[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]];
+    for(let i=0;i<uv.count;i++){const[u,v]=caras[Math.floor(i/4)];uv.setXY(i,uv.getX(i)*u/4,uv.getY(i)*v/4);}
+    g.clearGroups();recursos.geometrias.add(g);const o=new THREE.Mesh(g,material);o.name=nombre;o.position.set(x,y,z);o.scale.set(w,h,d);o.userData.habitacion='Comedor';grupo.add(o);return o;
+  }
+  panel('Suelo puzzle comedor',13.45,3.025,8,12.2,.02,19.2,matSuelo);panel('Techo puzzle comedor',13.45,9.675,8,12.2,.02,19.2,matTecho);
+  panel('Mural fondo comedor',19.55,6.35,8,.025,6.6,19.2,matPared);panel('Mural lateral comedor',13.45,6.35,-1.6,12.2,6.6,.025,matPared);panel('Mural lateral comedor',13.45,6.35,17.6,12.2,6.6,.025,matPared);
+  panel('Mural entrada comedor sur',7.35,6.35,2.55,.025,6.6,8.3,matPared);panel('Mural entrada comedor norte',7.35,6.35,13.45,.025,6.6,8.3,matPared);panel('Dintel decorado comedor',7.35,8.15,8,.025,3,2.6,matPared);
+
+  // 04. REVESTIR SOLO LA PARTE INTERIOR DE LAS COLUMNAS.
+  function revestirColumnas(){
+    const limite=new THREE.Box3(new THREE.Vector3(7.38,3.06,-1.58),new THREE.Vector3(19.53,9.64,17.58));castillo.updateMatrixWorld(true);
+    const inversa=new THREE.Matrix4().copy(castillo.matrixWorld).invert(),box=new THREE.Box3(),columnas=[];
+    castillo.traverse(o=>{if(!o.isMesh||o.isInstancedMesh||o.geometry?.type!=='CylinderGeometry')return;box.setFromObject(o).applyMatrix4(inversa);if(box.intersectsBox(limite))columnas.push(o);});
+    const limites=[v=>v.x-limite.min.x,v=>limite.max.x-v.x,v=>v.y-limite.min.y,v=>limite.max.y-v.y,v=>v.z-limite.min.z,v=>limite.max.z-v.z];
+    function recortar(poly,distancia){const salida=[];for(let i=0;i<poly.length;i++){const a=poly[i],b=poly[(i+1)%poly.length],da=distancia(a),db=distancia(b),ia=da>=-1e-6,ib=db>=-1e-6;if(ia)salida.push(a);if(ia!==ib)salida.push(a.clone().lerp(b,THREE.MathUtils.clamp(da/(da-db),0,1)));}return salida;}
+    const vertices=[],uvs=[],centro=new THREE.Vector3();let total=0;
+    function agregar(v){vertices.push(v.x,v.y,v.z);const dx=v.x-centro.x,dz=v.z-centro.z,angulo=(Math.atan2(dz,dx)+Math.PI*2)%(Math.PI*2);uvs.push(angulo*Math.hypot(dx,dz)/4,v.y/4);}
+    for(const o of columnas){const pos=o.geometry.attributes.position,idx=o.geometry.index,m=new THREE.Matrix4().multiplyMatrices(inversa,o.matrixWorld),cantidad=idx?idx.count:pos.count,antes=vertices.length;centro.set(0,0,0).applyMatrix4(m);
+      for(let i=0;i<cantidad;i+=3){let poly=[];for(let j=0;j<3;j++)poly.push(new THREE.Vector3().fromBufferAttribute(pos,idx?idx.getX(i+j):i+j).applyMatrix4(m));for(const d of limites){poly=recortar(poly,d);if(poly.length<3)break;}for(let j=1;j<poly.length-1;j++){agregar(poly[0]);agregar(poly[j]);agregar(poly[j+1]);}}
+      if(vertices.length>antes)total++;
+    }
+    if(vertices.length){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));g.computeVertexNormals();g.computeBoundingSphere();const m=matPared.clone();m.polygonOffset=true;m.polygonOffsetFactor=-1;m.polygonOffsetUnits=-1;const o=new THREE.Mesh(g,m);o.name='Revestimiento puzzle columnas comedor';o.userData.habitacion='Comedor';o.renderOrder=1;grupo.add(o);recursos.geometrias.add(g);recursos.materiales.add(m);}
+    return total;
+  }
+  const columnasRevestidas=revestirColumnas();
+  const unidad=cajaGeo.toNonIndexed();
+  function lote(nombre,items,material){const a=[],v=new THREE.Vector3(),m=new THREE.Matrix4();for(const[x,y,z,w,h,d]of items){m.makeScale(w,h,d);m.setPosition(x,y,z);for(let i=0;i<unidad.attributes.position.count;i++){v.fromBufferAttribute(unidad.attributes.position,i).applyMatrix4(m);a.push(v.x,v.y,v.z);}}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(a,3));g.computeVertexNormals();g.computeBoundingSphere();recursos.geometrias.add(g);const o=new THREE.Mesh(g,material);o.name=nombre;o.userData.habitacion='Comedor';grupo.add(o);return o;}
+  const remates=[],lineas=[];for(const y of[3.18,4.2,9.5])remates.push([19.49,y,8,.035,.07,19.1],[13.45,y,17.54,12.1,.07,.035],[13.45,y,-1.54,12.1,.07,.035]);
+  remates.push([7.43,4.85,6.49,.08,3.6,.12],[7.43,4.85,9.51,.08,3.6,.12],[7.43,6.77,8,.08,.12,3.14]);for(const z of[1.5,8,14.5])remates.push([13.45,9.53,z,12.08,.12,.13]);
+  lineas.push([19.46,9.4,8,.018,.035,19],[13.45,9.4,17.51,12,.035,.018],[13.45,9.4,-1.51,12,.035,.018]);lote('Marcos tematicos comedor',remates,matMarco);lote('Lineas decorativas comedor',lineas,matLuz);unidad.dispose();
+
+  // 05. TRES ACCESOS3D. SUS TITULOS SE ACTUALIZAN DESDE EL CATALOGO.
+  const forma=new THREE.Shape();forma.moveTo(-1.6,-1.6);forma.lineTo(-.5,-1.6);forma.bezierCurveTo(-.5,-2.2,.5,-2.2,.5,-1.6);forma.lineTo(1.6,-1.6);forma.lineTo(1.6,-.5);forma.bezierCurveTo(1,-.5,1,.5,1.6,.5);forma.lineTo(1.6,1.6);forma.lineTo(.5,1.6);forma.bezierCurveTo(.5,2.2,-.5,2.2,-.5,1.6);forma.lineTo(-1.6,1.6);forma.lineTo(-1.6,.5);forma.bezierCurveTo(-1,.5,-1,-.5,-1.6,-.5);forma.closePath();
+  const geometriaPieza=new THREE.ExtrudeGeometry(forma,{depth:.24,bevelEnabled:true,bevelThickness:.045,bevelSize:.035,bevelSegments:1,curveSegments:16,steps:1});geometriaPieza.translate(0,0,-.12);recursos.geometrias.add(geometriaPieza);
+  const objetivos=[],carteles=[];
+  for(let i=0;i<3;i++){
+    const z=[2,8,13.2][i],o=new THREE.Mesh(geometriaPieza,[mat(paleta[i]),matDorado]);o.name='Acceso rompecabezas '+(i+1);o.position.set(19.22,6.2,z);o.rotation.y=-Math.PI/2;o.userData.habitacion='Comedor';o.userData.interactivo=true;o.userData.rompecabezas=i;grupo.add(o);objetivos.push(o);
+    const c=document.createElement('canvas');c.width=768;c.height=128;const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;recursos.texturas.add(t);carteles.push({canvas:c,textura:t});
+    const geo=new THREE.PlaneGeometry(i===2?3.6:4.8,.8);recursos.geometrias.add(geo);const etiqueta=new THREE.Mesh(geo,mat(0xffffff,t));etiqueta.position.set(19.04,3.7,z);etiqueta.rotation.y=-Math.PI/2;etiqueta.userData.habitacion='Comedor';grupo.add(etiqueta);
+  }
+  function actualizarCarteles(){
+    carteles.forEach((item,i)=>{const idx=catalogo.length?i%catalogo.length:0;objetivos[i].userData.rompecabezas=idx;const g=item.canvas.getContext('2d');g.fillStyle='#183a40';g.fillRect(0,0,768,128);g.textAlign='center';g.fillStyle='#e8d6a0';g.font='bold 32px Arial';g.fillText(catalogo[idx]?.titulo||'TUS ROMPECABEZAS',384,55,720);g.fillStyle='#b8d9d0';g.font='25px Arial';g.fillText(catalogo.length?'Clic para jugar · 9 / 12 / 16 piezas':'Cargar imágenes del catálogo',384,101);item.textura.needsUpdate=true;});
+  }
+  const minis=new THREE.InstancedMesh(geometriaPieza,mat(0xffffff),6),dummy=new THREE.Object3D();let num=0;
+  for(const z of[-1.45,17.45])for(const x of[9.3,13.4,17.5]){dummy.position.set(x,6.5,z);dummy.rotation.set(0,z<0?0:Math.PI,0);dummy.scale.setScalar(.25);dummy.updateMatrix();minis.setMatrixAt(num,dummy.matrix);minis.setColorAt(num,new THREE.Color(paleta[num%paleta.length]));num++;}
+  minis.instanceMatrix.needsUpdate=true;if(minis.instanceColor)minis.instanceColor.needsUpdate=true;minis.computeBoundingBox();minis.computeBoundingSphere();minis.userData.habitacion='Comedor';grupo.add(minis);
+
+  // 06. INTERFAZ Y BOTON PARA MOSTRAR/OCULTAR TODAS LAS GUIAS.
+  const estilo=document.createElement('style');estilo.textContent=`
+    #rp-abrir[hidden],#rp-modal[hidden]{display:none!important}
+    #rp-abrir{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:9;background:#164c4b;color:white;border:1px solid #a6c7a9;border-radius:22px;padding:12px 16px;font:600 13px system-ui;min-height:44px;touch-action:manipulation}
+    #rp-modal{position:fixed;inset:0;z-index:75;background:#0b151bf5;color:#edf5ef;display:flex;align-items:center;justify-content:center;padding:12px;font:14px system-ui;overflow:auto}
+    #rp-panel{position:relative;width:min(1280px,100%);max-height:96dvh;overflow:auto;background:#19333a;border:1px solid #9caa83;border-radius:16px;padding:14px;box-sizing:border-box}
+    #rp-panel h2{font-size:19px;margin:0 0 6px}#rp-panel p{margin:6px 0;color:#cbdbcf;font-size:12px}.rp-fila{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between}.rp-selectores{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0}.rp-selectores label{display:flex;align-items:center;gap:7px;font-size:12px}
+    #rp-panel button,#rp-panel select{background:#2b5550;color:#fff;border:1px solid #94ab8f;border-radius:8px;padding:10px 12px;min-height:44px;font:600 12px system-ui;touch-action:manipulation}#rp-panel button[aria-pressed=true]{background:#877445}#rp-panel button:disabled,#rp-panel select:disabled{opacity:.45}
+    #rp-canvas{display:block;width:100%;max-width:1150px;height:auto;margin:8px auto;touch-action:none;border-radius:10px;background:#1c303a;user-select:none;-webkit-user-select:none}
+    #rp-progreso{font-weight:600;color:#ead795;font-size:12px}#rp-estado{min-height:1.4em;overflow-wrap:anywhere}#rp-panel button:focus-visible,#rp-panel select:focus-visible{outline:2px solid #99f0d4;outline-offset:2px}
+  `;document.head.appendChild(estilo);
+  const jugar=document.createElement('button');jugar.type='button';jugar.id='rp-abrir';jugar.textContent='Jugar rompecabezas · G';jugar.hidden=true;document.body.appendChild(jugar);
+  const modal=document.createElement('div');modal.id='rp-modal';modal.hidden=true;
+  modal.innerHTML=`<section id="rp-panel" role="dialog" aria-modal="true" aria-labelledby="rp-titulo"><div class="rp-fila"><h2 id="rp-titulo">Tus rompecabezas</h2><span id="rp-progreso"></span></div><div class="rp-selectores"><label>Imagen <select id="rp-imagen"></select></label><label>Nivel <select id="rp-nivel"></select></label></div><p>Arrastra una pieza a su lugar o toca la pieza y después su casilla. Sin guías, el tablero no muestra imagen ni cuadrícula.</p><canvas id="rp-canvas" width="1000" height="1200" aria-label="Tablero del rompecabezas"></canvas><p id="rp-estado" role="status"></p><div class="rp-fila"><button type="button" id="rp-reiniciar">Reiniciar</button><button type="button" id="rp-referencia" aria-pressed="false">Mostrar guías</button><button type="button" id="rp-recargar">Recargar catálogo</button><button type="button" id="rp-volver">Volver al castillo</button></div></section>`;document.body.appendChild(modal);
+  const $=id=>modal.querySelector('#'+id),canvas=$('rp-canvas'),ctx=canvas.getContext('2d');
+  for(const[i,item]of niveles.entries()){const o=document.createElement('option');o.value=i;o.textContent=item.titulo;$('rp-nivel').appendChild(o);}
+  function mensaje(t){$('rp-estado').textContent=t;}
+  function actualizarSelectores(){
+    const lista=$('rp-imagen');lista.replaceChildren();
+    if(!catalogo.length){const o=document.createElement('option');o.textContent=cargandoCatalogo?'Cargando catálogo…':'Sin imágenes disponibles';lista.appendChild(o);}
+    catalogo.forEach((item,i)=>{const o=document.createElement('option');o.value=i;o.textContent=item.titulo;lista.appendChild(o);});lista.value=String(retoActual);
+    lista.disabled=cargandoCatalogo||!catalogo.length;$('rp-nivel').disabled=cargandoCatalogo||!catalogo.length;
+    $('rp-reiniciar').disabled=cargandoCatalogo||!catalogo.length;$('rp-referencia').disabled=!iniciado||cargandoImagen;
+    $('rp-referencia').textContent=referencia?'Ocultar guías':'Mostrar guías';$('rp-referencia').setAttribute('aria-pressed',String(referencia));
+  }
+
+  // 07. CATALOGO REAL. NO SE ADIVINAN NOMBRES NI SE LISTAN CARPETAS.
+  function normalizarCatalogo(datos){
+    const entrada=Array.isArray(datos)?datos:datos?.imagenes;
+    if(!Array.isArray(entrada))throw new Error('El catálogo debe ser una lista o un objeto con imagenes:[...].');
+    const resultado=[],vistos=new Set();
+    for(const[itemIndex,item]of entrada.entries()){
+      const objeto=typeof item==='string'?{archivo:item}:item;
+      if(!objeto||typeof objeto!=='object')continue;
+      const archivo=objeto.archivo;
+      let src;
+      if(typeof archivo==='string'&&archivo.trim()){
+        // Codificar espacios, tildes, # y ? de los nombres reales de archivo.
+        const ruta=archivo.split('/').map(encodeURIComponent).join('/');src=new URL(ruta,baseCarpeta).href;
+      }else if(typeof objeto.src==='string'&&objeto.src.trim())src=new URL(objeto.src,baseCarpeta).href;
+      else continue;
+      if(vistos.has(src))continue;vistos.add(src);
+      const nombre=archivo||objeto.src||'Imagen '+(itemIndex+1);
+      const titulo=objeto.titulo||nombre.split('/').pop().replace(/\.[^.]+$/,'').replace(/[-_]+/g,' ');
+      resultado.push({id:String(objeto.id??src),titulo:String(titulo),src,descripcion:String(objeto.descripcion??objeto.mensajeFinal??'')});
+    }
+    return resultado;
+  }
+  async function cargarCatalogo(){
+    const version=++versionCatalogo;cargandoCatalogo=true;actualizarSelectores();
+    try{
+      let datos;
+      if(Array.isArray(opciones.imagenes))datos=opciones.imagenes;
+      else{
+        const respuesta=await fetch(urlCatalogo.href,{cache:'no-store',signal:abortarCatalogo.signal});
+        if(!respuesta.ok)throw new Error('Catálogo no disponible (HTTP '+respuesta.status+'): '+urlCatalogo.href);
+        datos=await respuesta.json();
+      }
+      const nuevo=normalizarCatalogo(datos);
+      if(!nuevo.length)throw new Error('El catálogo no contiene imágenes. Añade archivos y genera imagenes.json.');
+      if(destruido||version!==versionCatalogo)return false;
+      catalogo=nuevo;retoActual=Math.min(retoActual,catalogo.length-1);actualizarCarteles();
+      mensaje(catalogo.length+' imágenes listas. Elige una para jugar.');return true;
+    }catch(error){
+      if(!destruido&&version===versionCatalogo&&error.name!=='AbortError')mensaje(error.message+' Genera el catálogo o revisa carpetaImagenes.');
+      return false;
+    }finally{if(!destruido&&version===versionCatalogo){cargandoCatalogo=false;actualizarSelectores();}}
+  }
+
+  // 08. CARGA ASINCRONA DE LA IMAGEN SELECCIONADA Y CACHE PEQUEÑA.
+  function leerImagen(src){
+    let cancelar;const promesa=new Promise((resolve,reject)=>{
+      const img=new Image();let finalizado=false;
+      const terminar=(error)=>{if(finalizado)return;finalizado=true;clearTimeout(timeout);img.onload=img.onerror=null;if(error)reject(error);else resolve(img);};
+      const timeout=setTimeout(()=>{terminar(new Error('La imagen tardó demasiado en cargar: '+src));img.src='';},20000);
+      cancelar=()=>{terminar(new Error('Carga cancelada'));img.src='';};
+      img.crossOrigin='anonymous';img.decoding='async';
+      img.onload=()=>{if(!img.naturalWidth||!img.naturalHeight)terminar(new Error('Imagen vacía o inválida: '+src));else terminar();};
+      img.onerror=()=>terminar(new Error('No se pudo cargar la imagen: '+src));img.src=src;
+    });return{promesa,cancelar:()=>cancelar?.()};
+  }
+  function cancelarCarga(){if(solicitudImagen){solicitudImagen.cancelar();solicitudImagen=null;}}
+  function dimensionesTablero(ancho,alto){const ratio=ancho/alto;const w=Math.min(650,390*ratio);return{w,h:w/ratio};}
+  async function obtenerImagen(item){
+    if(cacheImagenes.has(item.src)){const valor=cacheImagenes.get(item.src);cacheImagenes.delete(item.src);cacheImagenes.set(item.src,valor);return valor;}
+    const solicitud=leerImagen(item.src);solicitudImagen=solicitud;
+    try{
+      const img=await solicitud.promesa;const d=dimensionesTablero(img.naturalWidth,img.naturalHeight);
+      const c=document.createElement('canvas');c.width=Math.max(1,Math.round(d.w*2));c.height=Math.max(1,Math.round(d.h*2));
+      const g=c.getContext('2d');g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';g.drawImage(img,0,0,c.width,c.height);
+      const preparado={canvas:c,w:d.w,h:d.h};cacheImagenes.set(item.src,preparado);
+      while(cacheImagenes.size>2)cacheImagenes.delete(cacheImagenes.keys().next().value);
+      return preparado;
+    }finally{if(solicitudImagen===solicitud)solicitudImagen=null;}
+  }
+
+  // 09. INICIAR PARTIDA CON LA FOTO REAL, SIN DEFORMARLA.
+  function mezclar(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+  async function reiniciar(){
+    ocultarMensajeFinal();
+    if(!catalogo.length||destruido)return;
+    const version=++versionPartida;cancelarCarga();
+    cargandoImagen=true;iniciado=false;arrastre=seleccionada=null;piezas=[];imagen=null;resueltas=movimientos=0;tiempoAcumulado=0;terminado=false;
+    const item=catalogo[retoActual];mensaje('Cargando '+item.titulo+'…');actualizarSelectores();dibujar();
+    try{
+      const preparada=await obtenerImagen(item);
+      if(destruido||version!==versionPartida)return;
+      imagen=preparada.canvas;W=preparada.w;H=preparada.h;BX=(CW-W)/2;BY=55;
+      COLS=niveles[nivelActual].cols;FILAS=niveles[nivelActual].filas;PW=W/COLS;PH=H/FILAS;
+      const orden=mezclar(Array.from({length:COLS*FILAS},(_,i)=>i));
+      piezas=orden.map((id,slot)=>{
+        const c=id%COLS,r=Math.floor(id/COLS),pasoX=880/COLS,pasoY=560/FILAS;
+        const x=60+(slot%COLS)*pasoX+(pasoX-PW)/2,y=590+Math.floor(slot/COLS)*pasoY;
+        return{id,c,r,x,y,casaX:x,casaY:y,puesta:false,ruta:rutaPuzzle(PW,PH,bordes(c,r,COLS,FILAS))};
+      });
+      iniciado=true;inicioTiempo=performance.now();mensaje(item.titulo+': coloca las piezas en su lugar.');
+    }catch(error){if(!destruido&&version===versionPartida)mensaje(error.message+' Revisa el nombre y usa un servidor local.');}
+    finally{if(!destruido&&version===versionPartida){cargandoImagen=false;actualizarSelectores();actualizarMarcador();dibujar();}}
+  }
+  function segundos(){return tiempoAcumulado+((abierto&&iniciado&&!terminado&&!cargandoImagen)?(performance.now()-inicioTiempo)/1000:0);}
+  function actualizarMarcador(){const t=Math.floor(segundos());$('rp-progreso').textContent=`${resueltas} / ${niveles[nivelActual].cols*niveles[nivelActual].filas} piezas · ${Math.floor(t/60)}:${String(t%60).padStart(2,'0')} · ${movimientos} intentos`;}
+  function dibujarPieza(p){
+    ctx.save();ctx.translate(p.x,p.y);ctx.shadowColor='#0009';ctx.shadowBlur=p===seleccionada?13:5;ctx.shadowOffsetY=3;ctx.fillStyle='#cfb481';ctx.fill(p.ruta);ctx.shadowBlur=0;ctx.shadowOffsetY=0;
+    ctx.save();ctx.clip(p.ruta);ctx.drawImage(imagen,-p.c*PW,-p.r*PH,W,H);ctx.restore();ctx.lineWidth=p===seleccionada?4:1.7;ctx.strokeStyle=p.puesta?'#b1ead0':p===seleccionada?'#ffe19b':'#283c43';ctx.stroke(p.ruta);ctx.restore();
+  }
+
+  // 10. GUIAS: APAGADAS = NEGRO PURO, SIN FOTO NI CUADRICULA.
+  function dibujar(){
+    ctx.clearRect(0,0,CW,CH);ctx.fillStyle='#1b303a';ctx.fillRect(0,0,CW,CH);
+    ctx.fillStyle='#0e2028';ctx.fillRect(BX-10,BY-10,W+20,H+20);
+    ctx.fillStyle='#000000';ctx.fillRect(BX,BY,W,H);
+    if(!iniciado||!imagen){ctx.fillStyle='#c7d9d3';ctx.font='24px Arial';ctx.textAlign='center';ctx.fillText(cargandoImagen?'Cargando imagen…':'Elige una imagen del catálogo',500,260);return;}
+    if(referencia){
+      ctx.save();ctx.globalAlpha=.65;ctx.drawImage(imagen,BX,BY,W,H);ctx.restore();
+      ctx.strokeStyle='#c5dfce90';ctx.lineWidth=2;
+      for(let c=0;c<=COLS;c++){ctx.beginPath();ctx.moveTo(BX+c*PW,BY);ctx.lineTo(BX+c*PW,BY+H);ctx.stroke();}
+      for(let r=0;r<=FILAS;r++){ctx.beginPath();ctx.moveTo(BX,BY+r*PH);ctx.lineTo(BX+W,BY+r*PH);ctx.stroke();}
+    }
+    ctx.fillStyle='#bfd3ce';ctx.font='23px Arial';ctx.textAlign='center';ctx.fillText('PIEZAS',500,535);
+    for(const p of piezas)if(p.puesta)dibujarPieza(p);
+    for(const p of piezas)if(!p.puesta&&p!==seleccionada)dibujarPieza(p);
+    if(seleccionada&&!seleccionada.puesta)dibujarPieza(seleccionada);
+  }
+
+  // 11. ARRASTRAR CON RATON O TOCAR PIEZA Y CASILLA.
+  function puntoCanvas(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)*CW/r.width,y:(e.clientY-r.top)*CH/r.height};}
+  function piezaEn(p){const orden=seleccionada?[...piezas.filter(o=>o!==seleccionada),seleccionada]:piezas;for(let i=orden.length-1;i>=0;i--){const o=orden[i];if(!o.puesta&&ctx.isPointInPath(o.ruta,p.x-o.x,p.y-o.y))return o;}return null;}
+  function colocar(p,correcto){
+    movimientos++;if(correcto){p.x=BX+p.c*PW;p.y=BY+p.r*PH;p.puesta=true;resueltas++;seleccionada=null;mensaje('¡Pieza correcta!');}else{p.x=p.casaX;p.y=p.casaY;mensaje('Esa no es su posición. Inténtalo otra vez.');}
+    if(resueltas===COLS*FILAS&&!terminado){tiempoAcumulado=segundos();terminado=true;mostrarMensajeFinal();}actualizarMarcador();dibujar();
+  }
+  function tocarCasilla(p){if(!seleccionada||p.x<BX||p.x>=BX+W||p.y<BY||p.y>=BY+H)return;const c=Math.floor((p.x-BX)/PW),r=Math.floor((p.y-BY)/PH);colocar(seleccionada,c===seleccionada.c&&r===seleccionada.r);}
+  canvas.addEventListener('pointerdown',e=>{
+    ultimoPunteroRompecabezas={clientX:e.clientX,clientY:e.clientY};
+    if(!abierto||!iniciado||cargandoImagen||arrastre||terminado)return;e.preventDefault();const p=puntoCanvas(e),pieza=piezaEn(p);if(!pieza){tocarCasilla(p);return;}
+    seleccionada=pieza;arrastre={id:e.pointerId,pieza,dx:p.x-pieza.x,dy:p.y-pieza.y,inicioX:p.x,inicioY:p.y,movido:false};try{canvas.setPointerCapture(e.pointerId);}catch{}dibujar();
+  });
+  canvas.addEventListener('pointermove',e=>{
+    if(arrastre&&e.pointerId===arrastre.id)ultimoPunteroRompecabezas={clientX:e.clientX,clientY:e.clientY};if(!arrastre||e.pointerId!==arrastre.id)return;e.preventDefault();const p=puntoCanvas(e);if(Math.hypot(p.x-arrastre.inicioX,p.y-arrastre.inicioY)>8)arrastre.movido=true;if(arrastre.movido){arrastre.pieza.x=THREE.MathUtils.clamp(p.x-arrastre.dx,0,CW-PW);arrastre.pieza.y=THREE.MathUtils.clamp(p.y-arrastre.dy,0,CH-PH);dibujar();}});
+  function terminarArrastre(e,cancelado=false){if(!arrastre||e.pointerId!==arrastre.id)return;const a=arrastre;arrastre=null;if(cancelado){a.pieza.x=a.pieza.casaX;a.pieza.y=a.pieza.casaY;dibujar();return;}if(a.movido){const tx=BX+a.pieza.c*PW,ty=BY+a.pieza.r*PH;colocar(a.pieza,Math.hypot(a.pieza.x-tx,a.pieza.y-ty)<Math.min(PW,PH)*.42);}else{mensaje('Pieza seleccionada: toca su casilla o arrástrala.');dibujar();}}
+  canvas.addEventListener('pointerup',e=>terminarArrastre(e));canvas.addEventListener('pointercancel',e=>terminarArrastre(e,true));canvas.addEventListener('lostpointercapture',e=>terminarArrastre(e,true));canvas.addEventListener('contextmenu',e=>e.preventDefault());
+
+  // 12. ABRIR EL JUEGO DESDE LAS PIEZAS3D O EL BOTON MOVIL.
+  const raycaster=new THREE.Raycaster(),centro=new THREE.Vector2(0,0),clic=new THREE.Vector2(),puntoMundo=new THREE.Vector3();
+  function jugadorLocal(){castillo.updateWorldMatrix(true,false);inv.copy(castillo.matrixWorld).invert();return camara.getWorldPosition(local).applyMatrix4(inv);}
+  function objetivoCercano(){if(destruido||abierto||!dentro(jugadorLocal()))return null;let elegido=null,dMax=5.5;for(const o of objetivos){o.getWorldPosition(puntoMundo);const d=camara.position.distanceTo(puntoMundo);if(d<dMax){elegido=o;dMax=d;}}return elegido;}
+  function ocultarMenu(){if(abierto){const m=document.getElementById('menu');if(m)m.hidden=true;}}
+  async function abrirJuego(objetivo=null){
+    const candidato=objetivo||objetivoCercano();if(!candidato||destruido||abierto||!dentro(jugadorLocal()))return;candidato.getWorldPosition(puntoMundo);if(camara.position.distanceTo(puntoMundo)>5.5)return;
+    abierto=true;modal.hidden=false;jugar.hidden=true;controles?.pausar?.();if(document.pointerLockElement)document.exitPointerLock();ocultarMenu();$('rp-volver').focus();
+    if(cargandoCatalogo)await promesaCatalogo;
+    if(!abierto||destruido)return;
+    if(!catalogo.length){dibujar();actualizarSelectores();return;}
+    const nuevo=candidato.userData.rompecabezas%catalogo.length;
+    if(!iniciado||nuevo!==retoActual){retoActual=nuevo;actualizarSelectores();await reiniciar();}else{inicioTiempo=performance.now();dibujar();actualizarMarcador();}
+  }
+  function cerrarJuego(reanudar=true){if(!abierto)return;if(iniciado&&!terminado&&!cargandoImagen)tiempoAcumulado=segundos();abierto=false;modal.hidden=true;if(arrastre){arrastre.pieza.x=arrastre.pieza.casaX;arrastre.pieza.y=arrastre.pieza.casaY;arrastre=null;}seleccionada=null;if(reanudar)document.getElementById('boton-iniciar')?.click();}
+  function clickEscena(e){
+    if(e.target!==elemento||!document.getElementById('menu')?.hidden||!objetivoCercano())return;
+    if(document.pointerLockElement===elemento)raycaster.setFromCamera(centro,camara);else{const r=elemento.getBoundingClientRect();clic.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);raycaster.setFromCamera(clic,camara);}
+    grupo.updateWorldMatrix(true,true);const hits=raycaster.intersectObjects(objetivos,false);if(hits.length)abrirJuego(hits[0].object);
+  }
+  function tecla(e){if(e.repeat)return;if(abierto&&e.code==='Escape'){e.preventDefault();cerrarJuego(true);return;}if(e.code==='KeyG'&&document.getElementById('menu')?.hidden&&objetivoCercano()){e.preventDefault();abrirJuego();}}
+  function pointerLock(){if(abierto)queueMicrotask(ocultarMenu);}
+  jugar.addEventListener('click',()=>abrirJuego());$('rp-volver').addEventListener('click',()=>cerrarJuego(true));$('rp-reiniciar').addEventListener('click',()=>reiniciar());
+  $('rp-referencia').addEventListener('click',()=>{referencia=!referencia;actualizarSelectores();dibujar();});
+  $('rp-imagen').addEventListener('change',e=>{retoActual=Number(e.target.value);reiniciar();});$('rp-nivel').addEventListener('change',e=>{nivelActual=Number(e.target.value);reiniciar();});
+  $('rp-recargar').addEventListener('click',async()=>{if(cargandoCatalogo)return;versionPartida++;cancelarCarga();cacheImagenes.clear();cargandoImagen=false;iniciado=false;piezas=[];imagen=null;dibujar();promesaCatalogo=cargarCatalogo();if(await promesaCatalogo)reiniciar();});
+  elemento.addEventListener('click',clickEscena);document.addEventListener('keydown',tecla);document.addEventListener('pointerlockchange',pointerLock);
+
+  // 13. ACTUALIZACION Y API COMPATIBLE.
+  function actualizar(dt){
+    if(destruido)return;actualizarDesplazamientoArrastre(dt);const estaDentro=dentro(jugadorLocal()),abierta=Boolean(puerta.abierta&&Math.abs(puerta.angulo??puerta.pivote.rotation.y)>.015),visible=oclusion?.estadisticas?.habitacionesVisibles?.includes('Comedor')??true;
+    grupo.visible=(estaDentro||abierta)&&(estaDentro||visible);if(estaDentro)for(const o of grupo.children)o.visible=true;
+    const cercano=objetivoCercano();jugar.hidden=abierto||!cercano||!document.getElementById('menu')?.hidden;
+    if(cercano){const nombre=catalogo[cercano.userData.rompecabezas]?.titulo;const texto=nombre?'Jugar: '+nombre+' · G':'Abrir rompecabezas · G';if(jugar.textContent!==texto)jugar.textContent=texto;}
+    if(abierto){ocultarMenu();relojUI+=dt;if(relojUI>=.5){relojUI=0;actualizarMarcador();}}
+  }
+  
+  // RP_MEJORAS_PERSONALIZADAS_V2
+  let ultimoPunteroRompecabezas = null;
+  function ocultarMensajeFinal() {
+    const aviso = $('rp-final');
+    if (aviso) { aviso.hidden = true; aviso.textContent = ''; }
+  }
+  function mostrarMensajeFinal() {
+    let aviso = $('rp-final');
+    if (!aviso) {
+      aviso = document.createElement('div'); aviso.id = 'rp-final';
+      aviso.setAttribute('role','status'); aviso.setAttribute('aria-live','polite');
+      $('rp-estado').insertAdjacentElement('afterend',aviso);
+    }
+    const item = catalogo[retoActual];
+    aviso.textContent = item?.descripcion?.trim() || '¡Completaste el rompecabezas!';
+    aviso.hidden = false;
+    mensaje('¡Rompecabezas completado!');
+    aviso.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+  function inicializarMejorasRompecabezas() {
+    estilo.textContent += '\n' +
+      '#rp-final{padding:16px;margin:12px 0;border:1px solid #d9bf70;border-radius:10px;background:#31483d;color:#fff1ba;white-space:pre-wrap;line-height:1.6;font:16px system-ui}' +
+      '#rp-final[hidden]{display:none!important}' +
+      '#rp-navegacion{position:sticky;top:0;z-index:3;display:flex;gap:8px;justify-content:center;padding:8px;background:#19333af5;border-radius:8px;margin-bottom:8px}' +
+      '#rp-canvas{scroll-margin-top:80px}';
+    const barra = document.createElement('div'); barra.id = 'rp-navegacion';
+    const tablero = document.createElement('button'); tablero.type = 'button'; tablero.textContent = 'Ver tablero';
+    const piezas = document.createElement('button'); piezas.type = 'button'; piezas.textContent = 'Ver piezas';
+    barra.append(tablero,piezas); canvas.insertAdjacentElement('beforebegin',barra);
+    tablero.addEventListener('click', () => {
+      $('rp-panel').scrollTo({top:Math.max(0,canvas.offsetTop-90),behavior:'smooth'});
+    });
+    piezas.addEventListener('click', () => {
+      $('rp-panel').scrollTo({top:Math.max(0,canvas.offsetTop+canvas.clientHeight*(535/CH)-75),behavior:'smooth'});
+    });
+  }
+  function actualizarDesplazamientoArrastre(dt) {
+    if (!abierto || !arrastre?.movido || !ultimoPunteroRompecabezas) return;
+    const panel = $('rp-panel'), r = panel.getBoundingClientRect();
+    const y = ultimoPunteroRompecabezas.clientY, borde = 75;
+    let velocidad = 0;
+    if (y < r.top+borde) velocidad = -Math.min(1,(r.top+borde-y)/borde)*650;
+    else if (y > r.bottom-borde) velocidad = Math.min(1,(y-(r.bottom-borde))/borde)*650;
+    const antes = panel.scrollTop;
+    panel.scrollTop += velocidad*Math.min(0.05,Math.max(0,dt));
+    if (panel.scrollTop !== antes) {
+      const p = puntoCanvas(ultimoPunteroRompecabezas);
+      arrastre.pieza.x = THREE.MathUtils.clamp(p.x-arrastre.dx,0,CW-PW);
+      arrastre.pieza.y = THREE.MathUtils.clamp(p.y-arrastre.dy,0,CH-PH);
+      dibujar();
+    }
+  }
+
+
+  inicializarMejorasRompecabezas();
+  actualizarCarteles();actualizarSelectores();actualizarMarcador();dibujar();promesaCatalogo=cargarCatalogo();
+  return{
+    actualizar,vincularControles(c){controles=c;},vincularOclusion(o){oclusion=o;},abrirJuego,cerrarJuego,
+    get progreso(){return{rompecabezas:catalogo[retoActual]?.titulo||null,colocadas:resueltas,total:niveles[nivelActual].cols*niveles[nivelActual].filas,movimientos,completado:terminado,cargando:cargandoImagen};},
+    informe:{mueblesYLuminariasRetirados:retirar.size,colisionesRetiradas,columnasRevestidas,piezasInteractivas:3,niveles:[9,12,16],get rompecabezas(){return catalogo.length;},carpetaImagenes:baseCarpeta.href,catalogo:urlCatalogo.href,lucesNuevas:0},
+    liberar(){if(destruido)return;if(abierto)cerrarJuego(false);destruido=true;versionPartida++;versionCatalogo++;abortarCatalogo.abort();cancelarCarga();cacheImagenes.clear();elemento.removeEventListener('click',clickEscena);document.removeEventListener('keydown',tecla);document.removeEventListener('pointerlockchange',pointerLock);jugar.remove();modal.remove();estilo.remove();grupo.removeFromParent();minis.dispose();for(const g of recursos.geometrias)g.dispose();for(const m of recursos.materiales)m.dispose();for(const t of recursos.texturas)t.dispose();}
+  };
+}

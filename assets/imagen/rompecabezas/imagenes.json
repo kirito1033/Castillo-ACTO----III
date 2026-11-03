@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "imagenes": [
+    {
+      "id": "nosotros.jpg",
+      "titulo": "nosotros",
+      "archivo": "nosotros.jpg",
+      "descripcion": "¡Excelente! Has completado el rompecabezas «nosotros»."
+    }
+  ]
+}

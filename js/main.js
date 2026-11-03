@@ -18,6 +18,10 @@ import { abrirPasoExteriorTercerPiso } from './pasoExteriorTercerPiso.js';
 import { despejarEscaleraYSalida } from './despejarEscaleraYSalida.js';
 import { quitarBarandasTercerPiso } from './quitarBarandasTercerPiso.js';
 import { configurarInicioLejano } from './inicioLejano.js';
+import { crearSalaBibliotecaVideo } from './salaBibliotecaVideo.js';
+import {
+  crearComedorRompecabezas
+} from './comedorRompecabezas.js';
 
 const {escena,camara,renderizador}=crearEscena(document.getElementById('contenedor'));
 crearPiso(escena);
@@ -31,12 +35,70 @@ window.reparacionLosa=reconstruirLosaCompleta(castillo);
 window.pasoExteriorTercerPiso=abrirPasoExteriorTercerPiso(castillo);
 window.despejeCastillo=despejarEscaleraYSalida(castillo);
 window.barandasTercerPiso=quitarBarandasTercerPiso(castillo);
+// Puedes agregar fuentes propias aqui, o cargar archivos desde el panel.
+const sala = crearSalaBibliotecaVideo(
+  escena,
+  camara,
+  castillo,
+  {
+    // Configuración general de los focos.
+    separacionFocos: 0.7,
+    halosFocos: true,
+
+    // Color de respaldo si una canción no especifica uno.
+    colorFocos: 0xffd39a,
+
+    videos: [
+      {
+        titulo: 'Alex Ubago — Sin miedo a nada',
+        src: '../../assets/videos/alex-ubago-sin-miedo-a-nada.mp4',
+        colorFocos: 0xffd39a // Dorado cálido
+      },
+      {
+        titulo: 'Andrés Cepeda — Un Ratito',
+        src: '../../assets/videos/Andrés-Cepeda-Un-Ratito.mp4',
+        colorFocos: 0x75cfff // Azul claro
+      },
+      {
+        titulo: 'Chayanne — Dejaría Todo',
+        src: '../../assets/videos/Chayanne-Dejaría-Todo.mp4',
+        colorFocos: 0xffffff // Blanco
+      },
+      {
+        titulo: 'Esperón — Luma',
+        src: '../../assets/videos/Esperón-Luma.mp4',
+        colorFocos: 0xff8c69 // Coral
+      },
+      {
+        titulo: 'Zoé — Labios Rotos',
+        src: '../../assets/videos/Zoé-Labios-Rotos.mp4',
+        colorFocos: 0xc08cff // Violeta
+      }
+    ]
+  }
+);
+window.bibliotecaVideo=sala;
+const comedor = crearComedorRompecabezas(
+  escena,
+  camara,
+  castillo,
+  renderizador.domElement,
+  {
+    carpetaImagenes: '../../assets/imagen/rompecabezas/'
+  }
+);
+
+window.comedorRompecabezas = comedor;
 window.inicioJugador=configurarInicioLejano(camara,castillo);
 const ciclo=crearCicloDiaNoche(escena);
 const controles=crearControles(camara,renderizador.domElement,castillo.userData);
+sala.vincularControles(controles);
+comedor.vincularControles(controles);
 const dinamico=crearRenderizadoDinamico(escena,camara,renderizador,castillo);
 const ambiente=crearAmbienteAvanzado(escena,camara,castillo,entorno,ciclo);
 const oclusion=crearOclusionHabitaciones(escena,camara,castillo);
+sala.vincularOclusion(oclusion);
+comedor.vincularOclusion(oclusion);
 castillo.userData.prepararColisiones();
 window.informeAgrupacion=agruparEstructura(castillo);
 const rendimiento=crearMonitorRendimiento(escena,camara,renderizador,entorno);
@@ -55,6 +117,8 @@ renderizador.setAnimationLoop(t=>{
     oclusion.actualizar(relojOclusion);relojOclusion=0;ultimaPos.copy(camara.position);ultimaRot.copy(camara.quaternion);
   }
   if(relojEntorno>=0.12){entorno.actualizar();relojEntorno=0;}
+  sala.actualizar(dt);
+  comedor.actualizar(dt);
   rendimiento.antes(dt);renderizador.render(escena,camara);dinamico.registrarMetricas();
   rendimiento.despues(crudo,performance.now()-inicio);
 });
