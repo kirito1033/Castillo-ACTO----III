@@ -1,3 +1,5 @@
+// BOTICARIO_IMAGEN_DEFAULT_V3
+// BOTICARIO_SOLO_FOTOS_V2
 // API publica: solo lecturas. No necesita claves en el frontend.
 export function crearApiPlantas(opciones = {}) {
   const base = new URL(opciones.baseApi || 'https://api.inaturalist.org/v1/');
