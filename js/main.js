@@ -1,3 +1,5 @@
+import { crearBoticarioArmeria } from './boticarioArmeria.js';
+// BOTICARIO_ARMERIA_INTEGRADO
 import { crearEscena } from './escena.js';
 import { crearPiso } from './piso.js';
 import { crearControles } from './controles.js';
@@ -51,27 +53,27 @@ const sala = crearSalaBibliotecaVideo(
     videos: [
       {
         titulo: 'Alex Ubago — Sin miedo a nada',
-        src: '../../assets/videos/alex-ubago-sin-miedo-a-nada.mp4',
+        src: '../assets/videos/alex-ubago-sin-miedo-a-nada.mp4',
         colorFocos: 0xffd39a // Dorado cálido
       },
       {
         titulo: 'Andrés Cepeda — Un Ratito',
-        src: '../../assets/videos/Andrés-Cepeda-Un-Ratito.mp4',
+        src: '../assets/videos/Andrés-Cepeda-Un-Ratito.mp4',
         colorFocos: 0x75cfff // Azul claro
       },
       {
         titulo: 'Chayanne — Dejaría Todo',
-        src: '../../assets/videos/Chayanne-Dejaría-Todo.mp4',
+        src: '../assets/videos/Chayanne-Dejaría-Todo.mp4',
         colorFocos: 0xffffff // Blanco
       },
       {
         titulo: 'Esperón — Luma',
-        src: '../../assets/videos/Esperón-Luma.mp4',
+        src: '../assets/videos/Esperón-Luma.mp4',
         colorFocos: 0xff8c69 // Coral
       },
       {
         titulo: 'Zoé — Labios Rotos',
-        src: '../../assets/videos/Zoé-Labios-Rotos.mp4',
+        src: '../assets/videos/Zoé-Labios-Rotos.mp4',
         colorFocos: 0xc08cff // Violeta
       }
     ]
@@ -89,16 +91,20 @@ const comedor = crearComedorRompecabezas(
 );
 
 window.comedorRompecabezas = comedor;
+const boticario = crearBoticarioArmeria(escena, camara, castillo, renderizador.domElement);
+window.boticarioArmeria = boticario;
 window.inicioJugador=configurarInicioLejano(camara,castillo);
 const ciclo=crearCicloDiaNoche(escena);
 const controles=crearControles(camara,renderizador.domElement,castillo.userData);
 sala.vincularControles(controles);
 comedor.vincularControles(controles);
+boticario.vincularControles(controles);
 const dinamico=crearRenderizadoDinamico(escena,camara,renderizador,castillo);
 const ambiente=crearAmbienteAvanzado(escena,camara,castillo,entorno,ciclo);
 const oclusion=crearOclusionHabitaciones(escena,camara,castillo);
 sala.vincularOclusion(oclusion);
 comedor.vincularOclusion(oclusion);
+boticario.vincularOclusion(oclusion);
 castillo.userData.prepararColisiones();
 window.informeAgrupacion=agruparEstructura(castillo);
 const rendimiento=crearMonitorRendimiento(escena,camara,renderizador,entorno);
@@ -119,6 +125,7 @@ renderizador.setAnimationLoop(t=>{
   if(relojEntorno>=0.12){entorno.actualizar();relojEntorno=0;}
   sala.actualizar(dt);
   comedor.actualizar(dt);
+  boticario.actualizar(dt);
   rendimiento.antes(dt);renderizador.render(escena,camara);dinamico.registrarMetricas();
   rendimiento.despues(crudo,performance.now()-inicio);
 });
