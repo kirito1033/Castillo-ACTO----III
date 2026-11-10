@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>Castillo 3D — Paso 1</title>
+
+  <link rel="stylesheet" href="./css/estilos.css">
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+
+<body>
+  <div id="contenedor"></div>
+
+  <div id="menu">
+    <section class="panel">
+      <h1>Castillo 3D</h1>
+
+      <p>Paso 1: explorar el terreno</p>
+
+      <button id="boton-iniciar" type="button">
+        Entrar al escenario
+      </button>
+
+      <p class="instrucciones">
+        WASD: caminar<br>
+        Mouse: mirar alrededor<br>
+        Shift: correr<br>
+        Esc: liberar el mouse
+      </p>
+
+      <p id="estado" role="status"></p>
+    </section>
+  </div>
+
+  <div id="mira" hidden>+</div>
+
+  <div id="ayuda">
+    WASD · Caminar &nbsp; | &nbsp;
+    Mouse · Mirar &nbsp; | &nbsp;
+    Esc · Pausar
+  </div>
+
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>

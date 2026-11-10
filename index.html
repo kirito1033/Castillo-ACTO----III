@@ -20,31 +20,56 @@
       }
     }
   </script>
+  <link rel="stylesheet" href="./css/menuInicio.css">
 </head>
 
 <body>
   <div id="contenedor"></div>
 
-  <div id="menu">
-    <section class="panel">
-      <h1>Castillo 3D</h1>
+  <section id="menu" class="mi-inicio" data-mi-menu="romantico" aria-labelledby="mi-titulo">
+  <div class="mi-vigneta" aria-hidden="true"></div>
+  <header class="mi-barra">
+    <div class="mi-marca"><span class="mi-simbolo" aria-hidden="true">♜</span><span>Un lugar para nosotros<small>HECHO CON AMOR</small></span></div>
+    <div class="mi-barra-acciones">
+      <label class="mi-calidad-label">Calidad <select id="mi-calidad" aria-label="Calidad gráfica"><option value="bajo">Baja</option><option value="medio" selected>Equilibrada</option><option value="alto">Alta</option></select></label>
+      <button id="mi-pantalla-completa" class="mi-boton-texto" type="button">Pantalla completa <span aria-hidden="true">↗</span></button>
+    </div>
+  </header>
 
-      <p>Paso 1: explorar el terreno</p>
-
-      <button id="boton-iniciar" type="button">
-        Entrar al escenario
-      </button>
-
-      <p class="instrucciones">
-        WASD: caminar<br>
-        Mouse: mirar alrededor<br>
-        Shift: correr<br>
-        Esc: liberar el mouse
-      </p>
-
-      <p id="estado" role="status"></p>
-    </section>
+  <div class="mi-contenido">
+    <p class="mi-sobretitulo"><span class="mi-linea" aria-hidden="true"></span><span id="mi-sobretitulo">UN PEQUEÑO MUNDO, SOLO PARA TI</span></p>
+    <h1 id="mi-titulo"><span id="mi-titulo-principal">Un castillo</span><em id="mi-titulo-destacado">para ti.</em></h1>
+    <p class="mi-descripcion" id="mi-descripcion">Entre canciones, imágenes y pequeños desafíos, hay algo que quiero recordarte: mis lugares favoritos son los que puedo compartir contigo.</p>
+    <button id="boton-iniciar" class="mi-boton-principal" type="button"><span id="mi-texto-entrar">Comenzar nuestro recorrido</span><span class="mi-flecha" aria-hidden="true">→</span></button>
+    <div class="mi-enlaces">
+      <button id="mi-ver-dedicatoria" class="mi-boton-texto" type="button" aria-controls="mi-tarjeta" aria-expanded="false">Una dedicatoria <span aria-hidden="true">♡</span></button>
+      <button id="mi-ver-ayuda" class="mi-boton-texto" type="button" aria-controls="mi-tarjeta" aria-expanded="false">Cómo explorar <span aria-hidden="true">＋</span></button>
+    </div>
+    <p id="mi-pista" class="mi-pista">Puedes recorrerlo a tu ritmo. No hay prisa.</p>
+    <p id="estado" class="mi-estado" role="status" aria-live="polite"></p>
   </div>
+
+  <aside id="mi-tarjeta" class="mi-tarjeta" role="dialog" aria-modal="false" aria-labelledby="mi-tarjeta-titulo" hidden>
+    <button id="mi-cerrar-tarjeta" class="mi-cerrar" type="button" aria-label="Cerrar tarjeta">×</button>
+    <span class="mi-tarjeta-etiqueta" id="mi-tarjeta-etiqueta">PARA ALGUIEN MUY ESPECIAL</span>
+    <h2 id="mi-tarjeta-titulo">Este lugar es para ti</h2>
+    <div class="mi-separador" aria-hidden="true"></div>
+    <p id="mi-dedicatoria"></p>
+    <div id="mi-ayuda" hidden>
+      <p class="instrucciones">PC: WASD para caminar, mouse para mirar y Shift para correr.</p>
+      <ul>
+        <li>Abre las puertas con E o con el botón Puerta del móvil.</li>
+        <li>En la biblioteca encontrarás canciones para escuchar.</li>
+        <li>En el comedor, acércate a una pieza y pulsa G, haz clic o usa el botón Jugar.</li>
+        <li>F activa el vuelo. Espacio sube y Ctrl baja. En móvil utiliza los botones de vuelo.</li>
+        <li>Esc o Menú te permiten pausar el recorrido.</li>
+      </ul>
+    </div>
+    <span class="mi-tarjeta-final" aria-hidden="true">CON AMOR, PARA TI</span>
+  </aside>
+
+  <footer class="mi-pie"><p id="mi-pista-dispositivo">PC · TECLADO Y MOUSE &nbsp; / &nbsp; MÓVIL · CONTROLES TÁCTILES</p><span><span class="mi-linea" aria-hidden="true"></span> NUESTRA HISTORIA</span></footer>
+</section>
 
   <div id="mira" hidden>+</div>
 
@@ -54,6 +79,7 @@
     Esc · Pausar
   </div>
 
+  <script type="module" src="./js/menuInicio.js"></script>
   <script type="module" src="./js/main.js"></script>
 </body>
 </html>
