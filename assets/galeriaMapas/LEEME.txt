@@ -1,0 +1,57 @@
+GALERÍA FIJA: 13 RECUERDOS
+
+Las fotos se cargan desde las rutas de galeria.json, relativas al index.html.
+El visitante solo puede ver las imágenes, no cambiarlas.
+Las imágenes antes guardadas en IndexedDB no se leen ni se eliminan.
+No hay un cargador de archivos ni un editor dentro del juego.
+
+Para publicar, sube salaMapasGaleria.js, galeria.json y la carpeta de fotos completa.
+El actualizador no copia, mueve ni renombra los originales. No usa rutas C:\ en el sitio.
+Como propietario puedes cambiar títulos u orden en galeria.json, conservando los 13 IDs.
+
+PERRO: R cerca de él abre las interacciones; G acaricia directamente.
+Opciones: acariciar, patita, pelota, galletita y descanso.
+La pelota se juega en su rincón, sin recorrer ni bloquear el pasillo.
+
+CUADROS: clic con el mouse capturado o R lejos del perro para verlos ampliados.
+Flechas para cambiar imagen. Esc para cerrar; después pulsa Continuar.
+
+ASIGNACIÓN DE FOTOS
+cuadro-1 · Un mapa de recuerdos
+assets/imagen/salademapas/WhatsApp Unknown 2026-11-16 at 12.14.42 PM/WhatsApp Image 2026-11-16 at 12.08.01 PM.jpeg
+
+cuadro-2 · Instantes para guardar
+assets/imagen/salademapas/WhatsApp Unknown 2026-11-16 at 12.14.42 PM/WhatsApp Image 2026-11-16 at 12.08.02 PM (1).jpeg
+
+cuadro-3 · Un rincón para sonreír
+assets/imagen/salademapas/WhatsApp Unknown 2026-11-16 at 12.14.42 PM/WhatsApp Image 2026-11-16 at 12.08.02 PM (2).jpeg
+
+cuadro-4 · La magia de lo sencillo
+assets/imagen/salademapas/WhatsApp Unknown 2026-11-16 at 12.14.42 PM/WhatsApp Image 2026-11-16 at 12.08.02 PM.jpeg
+
+cuadro-5 · Donde nace la alegría
+assets/imagen/salademapas/WhatsApp Unknown 2026-11-16 at 12.14.42 PM/WhatsApp Image 2026-11-16 at 12.08.03 PM (1).jpeg
+
+cuadro-6 · Recuerdos que abrazan
+assets/imagen/salademapas/WhatsApp Unknown 2026-11-16 at 12.14.42 PM/WhatsApp Image 2026-11-16 at 12.08.03 PM (2).jpeg
+
+cuadro-7 · Un día para volver
+assets/imagen/salademapas/WhatsApp Unknown 2026-11-16 at 12.14.42 PM/WhatsApp Image 2026-11-16 at 12.08.03 PM (3).jpeg
+
+cuadro-8 · Entre luz y compañía
+assets/imagen/salademapas/WhatsApp Unknown 2026-11-16 at 12.14.42 PM/WhatsApp Image 2026-11-16 at 12.08.03 PM.jpeg
+
+cuadro-9 · Pequeñas grandes historias
+assets/imagen/salademapas/WhatsApp Unknown 2026-11-16 at 12.14.42 PM/WhatsApp Image 2026-11-16 at 12.08.04 PM (1).jpeg
+
+cuadro-10 · El hogar en una mirada
+assets/imagen/salademapas/WhatsApp Unknown 2026-11-16 at 12.14.42 PM/WhatsApp Image 2026-11-16 at 12.08.04 PM (2).jpeg
+
+cuadro-11 · Caminos que compartimos
+assets/imagen/salademapas/WhatsApp Unknown 2026-11-16 at 12.14.42 PM/WhatsApp Image 2026-11-16 at 12.08.04 PM (3).jpeg
+
+cuadro-12 · Un pedacito de felicidad
+assets/imagen/salademapas/WhatsApp Unknown 2026-11-16 at 12.14.42 PM/WhatsApp Image 2026-11-16 at 12.08.04 PM (4).jpeg
+
+cuadro-13 · Siempre en nuestra memoria
+assets/imagen/salademapas/WhatsApp Unknown 2026-11-16 at 12.14.42 PM/WhatsApp Image 2026-11-16 at 12.08.04 PM.jpeg

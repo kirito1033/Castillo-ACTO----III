@@ -1,0 +1,322 @@
+import * as THREE from 'three';
+
+export const CUADROS_MAPAS = Object.freeze([
+  {id:'cuadro-1',titulo:'El reino entre montañas',x:10.4,y:13,z:-17.53,w:3.65,h:2.55,rot:0},
+  {id:'cuadro-2',titulo:'Un puente hacia casa',x:16.6,y:13,z:-17.53,w:3.65,h:2.55,rot:0},
+  {id:'cuadro-3',titulo:'Memorias del jardín',x:19.48,y:12.9,z:-5.1,w:2.65,h:2.9,rot:-Math.PI/2},
+  {id:'cuadro-4',titulo:'Nuestro pequeño refugio',x:19.48,y:12.9,z:-9,w:2.65,h:2.9,rot:-Math.PI/2},
+  {id:'cuadro-5',titulo:'Donde viven las estrellas',x:19.48,y:12.9,z:-15.1,w:2.65,h:2.9,rot:-Math.PI/2},
+  {id:'cuadro-6',titulo:'Caminos compartidos',x:10.4,y:13,z:-2.39,w:3.5,h:2.5,rot:Math.PI},
+  {id:'cuadro-7',titulo:'El horizonte nos espera',x:16.6,y:13,z:-2.39,w:3.5,h:2.5,rot:Math.PI},
+  {id:'cuadro-8',titulo:'Una ventana al recuerdo',x:7.39,y:12.9,z:-14.5,w:2.65,h:2.9,rot:Math.PI/2}
+]);
+
+export function crearSalaMapasGaleria(escena,camara,castillo,elemento,opciones={}){
+  if(castillo.userData.galeriaMapas)return castillo.userData.galeriaMapas;
+  const ROOM='Sala de mapas',raiz=new THREE.Group();raiz.name='Sala de mapas · Galería de recuerdos';castillo.add(raiz);
+  const geometrias=new Set(),materiales=new Set(),texturas=new Set(),propios=[],ocultos=[],retirados=[];
+  const colisiones=castillo.userData.colisiones;
+  const cajaGeo=new THREE.BoxGeometry(1,1,1),esferaGeo=new THREE.SphereGeometry(1,20,14),peloGeo=new THREE.SphereGeometry(1,7,5);
+  [cajaGeo,esferaGeo,peloGeo].forEach(g=>geometrias.add(g));
+  const marcar=o=>{Object.assign(o.userData,{habitacion:ROOM,noAgrupar:true,dinamico:true});return o;};marcar(raiz);
+  function material(color,extra={}){const m=new THREE.MeshStandardMaterial({color,roughness:.8,...extra});materiales.add(m);return m;}
+  const marfil=material('#e0d5bc'),nogal=material('#3e3029'),oro=material('#c3a065',{metalness:.55,roughness:.4}),azul=material('#334b60');
+  const lienzoFondo=material('#eee4cd'),piedraClara=material('#b9b4a5');
+  function caja(nombre,x,y,z,w,h,d,mat,padre=raiz,solido=false){
+    const o=marcar(new THREE.Mesh(cajaGeo,mat));o.name=nombre;o.position.set(x,y,z);o.scale.set(w,h,d);o.castShadow=o.receiveShadow=true;padre.add(o);
+    if(solido&&Array.isArray(colisiones)){const r={mesh:o,w,h,d,esCaja:true};colisiones.push(r);propios.push(r);}return o;
+  }
+  function esfera(nombre,x,y,z,sx,sy,sz,mat,padre=raiz){const o=marcar(new THREE.Mesh(esferaGeo,mat));o.name=nombre;o.position.set(x,y,z);o.scale.set(sx,sy,sz);o.castShadow=o.receiveShadow=true;padre.add(o);return o;}
+  function canvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return c;}
+  function tex(c){const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;texturas.add(t);return t;}
+  function plano(c,w,h,x,y,z,padre=raiz){
+    const g=new THREE.PlaneGeometry(w,h);geometrias.add(g);const m=new THREE.MeshBasicMaterial({map:tex(c),toneMapped:false});materiales.add(m);
+    const o=marcar(new THREE.Mesh(g,m));o.position.set(x,y,z);padre.add(o);return o;
+  }
+  // Retirar únicamente el mobiliario antiguo que está dentro de esta habitación.
+  castillo.updateMatrixWorld(true);const inv=new THREE.Matrix4().copy(castillo.matrixWorld).invert(),bb=new THREE.Box3();
+  const zona=new THREE.Box3(new THREE.Vector3(7.35,9.99,-17.8),new THREE.Vector3(19.7,16.95,-2.32));
+  castillo.traverse(o=>{
+    if(!o.isMesh||!/^(Mesa|Armario)(\s|$)/i.test(o.name))return;
+    bb.setFromObject(o).applyMatrix4(inv);if(zona.containsBox(bb))ocultos.push({objeto:o,visible:o.visible});
+  });ocultos.forEach(r=>r.objeto.visible=false);
+  if(Array.isArray(colisiones)){const quitar=new Set(ocultos.map(r=>r.objeto));for(let i=colisiones.length-1;i>=0;i--)if(quitar.has(colisiones[i].mesh))retirados.push({indice:i,valor:colisiones.splice(i,1)[0]});}
+  // Revestimientos locales. La puerta oeste y la ventana oriental quedan libres.
+  caja('Galería · Pared posterior',13.5,13.5,-17.585,12.3,6.96,.018,marfil);
+  caja('Galería · Pared oriental',19.585,13.5,-9.96,.018,6.96,15.25,marfil);
+  caja('Galería · Pared frontal',13.5,13.5,-2.315,12.3,6.96,.018,marfil);
+  caja('Galería · Pared oeste norte',7.335,13.5,-14.5,.018,6.96,6.34,marfil);
+  caja('Galería · Pared oeste sur',7.335,13.5,-5.5,.018,6.96,6.34,marfil);
+  caja('Galería · Dintel',7.335,15.3,-10,.018,3.36,2.66,marfil);
+  const piso=material('#76563d');caja('Galería · Suelo de nogal',13.46,10.05,-9.98,12.2,.012,15.22,piso);
+  const vetas=canvas(512,512),vc=vetas.getContext('2d');vc.fillStyle='#795b43';vc.fillRect(0,0,512,512);
+  for(let i=0;i<8;i++){vc.fillStyle=i%2?'#87684c':'#71523d';vc.fillRect(0,i*64,512,64);vc.strokeStyle='#392e2666';vc.lineWidth=2;vc.strokeRect(0,i*64,512,64);for(let j=0;j<6;j++){vc.beginPath();vc.moveTo(0,i*64+10+j*8);vc.bezierCurveTo(170,i*64+j*8,340,i*64+18+j*8,512,i*64+9+j*8);vc.stroke();}}
+  const tp=tex(vetas);tp.wrapS=tp.wrapT=THREE.RepeatWrapping;tp.repeat.set(3,4);piso.map=tp;piso.color.set('#ffffff');
+  for(const z of [-17.48,-2.43]){caja('Galería · Zócalo',13.45,10.32,z,12.2,.45,.14,nogal);caja('Galería · Moldura alta',13.45,15.55,z,12.2,.08,.1,oro);}
+  caja('Galería · Zócalo este',19.48,10.32,-10,.14,.45,15.1,nogal);
+  const alf=canvas(512,512),ac=alf.getContext('2d');ac.fillStyle='#243d51';ac.fillRect(0,0,512,512);
+  for(const d of [12,22,43]){ac.strokeStyle=d===22?'#bba16d':'#65788a';ac.lineWidth=3;ac.strokeRect(d,d,512-2*d,512-2*d);}
+  ac.translate(256,256);ac.strokeStyle='#c4ae7c';ac.lineWidth=2;
+  for(let i=0;i<8;i++){ac.rotate(Math.PI/4);ac.beginPath();ac.moveTo(0,-100);ac.lineTo(12,-25);ac.lineTo(0,-40);ac.lineTo(-12,-25);ac.closePath();ac.stroke();}
+  const alfombra=plano(alf,5.7,8.2,13.4,10.071,-10.1);alfombra.rotation.x=-Math.PI/2;
+  caja('Galería · Banco',13.5,10.57,-4.6,3.8,.54,1.1,azul,raiz,true);
+  for(const x of [12,15])for(const z of [-4.98,-4.22])caja('Galería · Pata de banco',x,10.26,z,.14,.4,.14,oro);
+  const placa=canvas(768,256),pc=placa.getContext('2d');pc.fillStyle='#233943';pc.fillRect(0,0,768,256);pc.strokeStyle='#c6a868';pc.lineWidth=5;pc.strokeRect(12,12,744,232);pc.fillStyle='#f1dfb4';pc.textAlign='center';pc.font='40px Georgia';pc.fillText('GALERÍA DE RECUERDOS',384,112);pc.font='22px Georgia';pc.fillText('Sala de mapas · Cada imagen guarda un viaje',384,174);
+  plano(placa,5.6,1.6,13.5,15.6,-17.53);
+  // Dos macetas, fuera del recorrido principal.
+  const hojaMat=material('#425e42'),barro=material('#9b6a4d');
+  for(const x of [8.2,18.6]){
+    const g=new THREE.CylinderGeometry(.34,.26,.65,14);geometrias.add(g);const maceta=marcar(new THREE.Mesh(g,barro));maceta.position.set(x,10.39,-3.25);raiz.add(maceta);
+    for(let i=0;i<5;i++){const a=i*2.4;const h=esfera('Galería · Follaje',x+Math.cos(a)*.2,11.15+(i%2)*.25,-3.25+Math.sin(a)*.2,.19,.55,.14,hojaMat);h.rotation.z=Math.cos(a)*.4;}
+  }
+  // Cuadros con molduras en capas, esquinas talladas y etiquetas.
+  const cuadros=[],seleccionables=[];
+  function dibujarInicial(c,n){
+    const ctx=c.getContext('2d'),w=c.width,h=c.height;ctx.fillStyle=['#ddd0ad','#d7c9b7','#b9c6b2'][n%3];ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle='#74644966';ctx.lineWidth=1;
+    for(let i=1;i<12;i++){ctx.beginPath();ctx.moveTo(i*w/12,0);ctx.lineTo(i*w/12,h);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i*h/12);ctx.lineTo(w,i*h/12);ctx.stroke();}
+    ctx.fillStyle='#799183';ctx.beginPath();ctx.moveTo(0,h*.7);for(let i=0;i<9;i++)ctx.lineTo(i*w/8,h*(.38+((i*7+n*3)%9)/30));ctx.lineTo(w,h);ctx.lineTo(0,h);ctx.fill();
+    ctx.strokeStyle='#e3d3a0';ctx.lineWidth=8;ctx.beginPath();ctx.moveTo(w*.15,h*.9);ctx.bezierCurveTo(w*.7,h*.45,w*.1,h*.3,w*.85,h*.14);ctx.stroke();
+    ctx.fillStyle='#434b4d';const xx=w*.57,yy=h*.43;ctx.fillRect(xx,yy,w*.16,h*.2);for(const dx of [-.02,.13]){ctx.fillRect(xx+dx*w,yy-h*.08,w*.06,h*.28);ctx.beginPath();ctx.moveTo(xx+(dx-.01)*w,yy-h*.08);ctx.lineTo(xx+(dx+.03)*w,yy-h*.15);ctx.lineTo(xx+(dx+.07)*w,yy-h*.08);ctx.fill();}
+    ctx.strokeStyle='#f8edcd';ctx.lineWidth=3;ctx.strokeRect(18,18,w-36,h-36);ctx.fillStyle='#f7edcc';ctx.textAlign='center';ctx.font=`${Math.round(w*.036)}px Georgia`;ctx.fillText('UN RECUERDO POR COLOCAR',w/2,h*.86);ctx.font=`${Math.round(w*.026)}px Georgia`;ctx.fillText('Abre la galería para elegir tu imagen',w/2,h*.915);
+  }
+  function rotulo(c,titulo){const ctx=c.getContext('2d');ctx.fillStyle='#e6d9bd';ctx.fillRect(0,0,c.width,c.height);ctx.fillStyle='#473e35';ctx.textAlign='center';let tam=30;do{ctx.font=`${tam}px Georgia`;if(ctx.measureText(titulo).width<c.width-30)break;tam--;}while(tam>12);ctx.fillText(titulo,c.width/2,c.height*.64);}
+  CUADROS_MAPAS.forEach((d,i)=>{
+    const g=new THREE.Group();g.name='Galería · Marco '+d.id;g.position.set(d.x,d.y,d.z);g.rotation.y=d.rot;raiz.add(g);
+    caja('Galería · Fondo de cuadro',0,0,0,d.w+.22,d.h+.22,.14,nogal,g);
+    for(const x of [-d.w/2,d.w/2]){caja('Galería · Marco tallado',x,0,.10,.17,d.h+.28,.15,oro,g);caja('Galería · Filete interior',x-Math.sign(x)*.11,0,.17,.035,d.h,.045,piedraClara,g);}
+    for(const y of [-d.h/2,d.h/2]){caja('Galería · Marco tallado',0,y,.10,d.w+.28,.17,.15,oro,g);caja('Galería · Filete interior',0,y-Math.sign(y)*.11,.17,d.w,.035,.045,piedraClara,g);}
+    for(const x of [-d.w/2,d.w/2])for(const y of [-d.h/2,d.h/2]){const adorno=esfera('Galería · Esquina labrada',x,y,.20,.12,.12,.055,oro,g);adorno.rotation.z=Math.PI/4;}
+    const ancho=d.w/d.h>=1?768:Math.round(768*d.w/d.h),alto=d.w/d.h>=1?Math.round(768*d.h/d.w):768;
+    const c=canvas(ancho,alto);dibujarInicial(c,i);const o=plano(c,d.w-.26,d.h-.26,0,0,.19,g);o.userData.cuadro=d.id;seleccionables.push(o);
+    const label=canvas(768,90);rotulo(label,d.titulo);const cartel=plano(label,2.6,.30,0,-d.h/2-.37,.11,g);
+    // Aplique decorativo; no añade una luz por cuadro.
+    caja('Galería · Aplique',0,d.h/2+.34,.18,.72,.10,.22,oro,g);
+    cuadros.push({def:d,canvas:c,mesh:o,label,cartel,titulo:d.titulo,publicado:null,local:null,version:0});
+  });
+  const luz=new THREE.PointLight(0xffdfb6,28,13,2);luz.position.set(13.3,15.5,-10);luz.castShadow=false;raiz.add(luz);marcar(luz);
+  // Perrito estilizado inspirado en la referencia: pelo blanco, orejas oscuras,
+  // máscara marrón, ojos grandes y hocico corto con barba. No es un modelo fotorealista.
+  const perro=new THREE.Group();perro.name='Galería · Perrito guardián';perro.position.set(13.2,10.18,-11.1);perro.rotation.y=-Math.PI/2;perro.scale.setScalar(.72);raiz.add(perro);marcar(perro);
+  const blanco=material('#eee9dc'),blancoCalido=material('#d4cbb8'),cafe=material('#594039'),oscuro=material('#302a2a');
+  const negro=material('#171719',{roughness:.22}),brillo=material('#ffffff',{roughness:.1}),collarMat=material('#567484');
+  const cuerpo=new THREE.Group();perro.add(cuerpo);
+  esfera('Perrito · Cuerpo',0,.62,-.16,.48,.57,.63,blanco,cuerpo);
+  esfera('Perrito · Pecho',0,.66,.23,.39,.51,.36,blanco,cuerpo);
+  for(const x of [-.31,.31]){esfera('Perrito · Patita trasera',x,.22,-.34,.24,.23,.3,blanco,cuerpo);esfera('Perrito · Pata delantera',x*.8,.36,.30,.14,.29,.16,blanco,cuerpo);esfera('Perrito · Huellita',x*.8,.14,.4,.17,.12,.24,blancoCalido,cuerpo);}
+  const cabeza=new THREE.Group();cabeza.position.set(0,1.24,.32);cuerpo.add(cabeza);
+  esfera('Perrito · Cabeza',0,0,0,.53,.47,.46,blanco,cabeza);
+  esfera('Perrito · Coronilla oscura',0,.15,-.09,.5,.37,.37,cafe,cabeza);
+  for(const x of [-.23,.23])esfera('Perrito · Mancha del rostro',x,.07,.30,.28,.29,.20,cafe,cabeza);
+  esfera('Perrito · Franja blanca',0,.19,.34,.125,.37,.15,blanco,cabeza);
+  const ojos=[];
+  for(const x of [-.225,.225]){
+    const ojo=new THREE.Group();ojo.position.set(x,.075,.476);cabeza.add(ojo);ojos.push(ojo);
+    esfera('Perrito · Ojo',0,0,0,.102,.109,.074,negro,ojo);esfera('Perrito · Reflejo',-.026,.035,.064,.026,.026,.014,brillo,ojo);
+    esfera('Perrito · Reflejo pequeño',.027,-.023,.069,.012,.012,.008,brillo,ojo);
+    esfera('Perrito · Ceja clara',x,.245,.43,.18,.07,.075,blanco,cabeza);
+  }
+  for(const x of [-.145,.145])esfera('Perrito · Bigote',x,-.205,.50,.22,.15,.20,blanco,cabeza);
+  esfera('Perrito · Barba',0,-.37,.32,.33,.24,.21,blanco,cabeza);
+  esfera('Perrito · Nariz',0,-.10,.689,.11,.079,.074,negro,cabeza);
+  esfera('Perrito · Brillo de nariz',-.025,-.077,.753,.028,.012,.008,brillo,cabeza);
+  const boca=material('#6c4847');esfera('Perrito · Sonrisa',0,-.29,.55,.12,.028,.025,boca,cabeza);
+  const lenguaMat=material('#cf8790',{transparent:true,opacity:0,depthWrite:false});esfera('Perrito · Lengüita',0,-.33,.59,.06,.074,.018,lenguaMat,cabeza);
+  let semilla=13579;const azar=()=>{semilla=(Math.imul(semilla,1664525)+1013904223)>>>0;return semilla/4294967296;};
+  function pelo(padre,cantidad,muestreo,mat){
+    const lote=marcar(new THREE.InstancedMesh(peloGeo,mat,cantidad));lote.name='Perrito · Mechones agrupados';const dummy=new THREE.Object3D();
+    for(let i=0;i<cantidad;i++){const p=muestreo(i);dummy.position.set(p.x,p.y,p.z);dummy.scale.set(p.sx??.055,p.sy??.11,p.sz??.05);dummy.rotation.set(p.rx??0,p.ry??0,p.rz??0);dummy.updateMatrix();lote.setMatrixAt(i,dummy.matrix);}
+    lote.instanceMatrix.needsUpdate=true;lote.computeBoundingSphere();lote.castShadow=lote.receiveShadow=true;padre.add(lote);return lote;
+  }
+  pelo(cuerpo,110,()=>{const u=azar()*Math.PI*2,v=Math.acos(2*azar()-1);return{x:.48*Math.sin(v)*Math.cos(u),y:.63+.55*Math.cos(v),z:-.13+.61*Math.sin(v)*Math.sin(u),sy:.08+azar()*.08,rz:(azar()-.5)*.6};},blanco);
+  for(const lado of [-1,1]){
+    const oreja=new THREE.Group();oreja.position.set(lado*.49,-.08,-.015);oreja.rotation.z=lado*.10;cabeza.add(oreja);
+    esfera('Perrito · Oreja caída',0,-.13,0,.205,.43,.23,oscuro,oreja);
+    pelo(oreja,46,()=>{const u=azar()*Math.PI*2,v=Math.acos(2*azar()-1);return{x:.18*Math.sin(v)*Math.cos(u),y:-.13+.39*Math.cos(v),z:.21*Math.sin(v)*Math.sin(u),sx:.038,sy:.14+azar()*.08,sz:.035,rz:lado*.1};},cafe);
+    pelo(cabeza,13,()=>({x:lado*(.10+azar()*.22),y:-.24-azar()*.12,z:.54+azar()*.07,sx:.035,sy:.13+azar()*.06,sz:.035,rz:lado*(-.25-azar()*.55)}),blanco);
+  }
+  pelo(cabeza,28,()=>({x:(azar()-.5)*.29,y:.31+azar()*.12,z:.12+azar()*.27,sx:.045,sy:.12+azar()*.06,sz:.045,rz:(azar()-.5)*.8}),blanco);
+  const cola=new THREE.Group();cola.position.set(0,.66,-.66);cuerpo.add(cola);
+  const tg=new THREE.TorusGeometry(.25,.095,9,25,Math.PI*1.7);geometrias.add(tg);const rizo=marcar(new THREE.Mesh(tg,blanco));rizo.position.set(.13,.15,-.03);cola.add(rizo);
+  esfera('Perrito · Punta de cola',.28,.39,-.03,.11,.16,.11,blanco,cola);
+  const cg=new THREE.TorusGeometry(.31,.037,8,24);geometrias.add(cg);const collar=marcar(new THREE.Mesh(cg,collarMat));collar.rotation.x=Math.PI/2;collar.position.set(0,.96,.18);cuerpo.add(collar);
+  esfera('Perrito · Medalla',0,.84,.45,.075,.085,.025,oro,cuerpo);
+  const coj=material('#667f85');esfera('Galería · Cojín del perrito',13.2,10.13,-11.1,.91,.065,.72,coj);
+  const proxyMat=material('#ffffff');proxyMat.visible=false;
+  const proxy=caja('Galería · Colisión del perrito',13.2,10.84,-11.1,1.55,1.32,.94,proxyMat,raiz,true);proxy.castShadow=proxy.receiveShadow=false;
+  // Persistencia: IndexedDB para archivos locales; JSON para imágenes publicadas.
+  const carpeta=new URL(opciones.carpetaImagenes??'./assets/galeriaMapas/',document.baseURI);
+  let baseDatos=null,persistencia=true,liberado=false,controles=null,oclusion=null,abierto=false,ocupado=false,cargando=true,dentro=false,cercaPerro=false;
+  let reloj=0,mimos=0,ultimoAviso='',seleccion=0,revisionUI=0;
+  const localCam=new THREE.Vector3(),paraPerro=new THREE.Vector3();
+  function abrirDB(){return new Promise((resolve,reject)=>{
+    if(!window.indexedDB){reject(new Error('IndexedDB no está disponible.'));return;}
+    const req=indexedDB.open('castillo-galeria-mapas-v1:'+new URL('./',document.baseURI).pathname,1);
+    req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('cuadros'))req.result.createObjectStore('cuadros',{keyPath:'id'});};
+    req.onsuccess=()=>{const db=req.result;if(liberado){db.close();resolve(null);}else{db.onversionchange=()=>db.close();resolve(db);}};req.onerror=()=>reject(req.error);req.onblocked=()=>reject(new Error('Cierra otras pestañas del castillo e inténtalo otra vez.'));
+  });}
+  function dbAccion(modo,accion){return new Promise((resolve,reject)=>{
+    if(!baseDatos){reject(new Error('No se pudo abrir el almacenamiento local.'));return;}
+    const tx=baseDatos.transaction('cuadros',modo);let req;try{req=accion(tx.objectStore('cuadros'));}catch(e){reject(e);return;}
+    tx.oncomplete=()=>resolve(req?.result);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error??new Error('Operación cancelada.'));
+  });}
+  function imagenURL(url){return new Promise((resolve,reject)=>{const im=new Image();const timer=setTimeout(()=>{im.onload=im.onerror=null;im.src='';reject(new Error('La imagen tardó demasiado en cargar.'));},15000);im.onload=()=>{clearTimeout(timer);resolve(im);};im.onerror=()=>{clearTimeout(timer);reject(new Error('No se pudo cargar la imagen.'));};im.src=url;});}
+  function pintarImagen(c,im){const ctx=c.getContext('2d');ctx.fillStyle='#efe6d1';ctx.fillRect(0,0,c.width,c.height);const escala=Math.min(c.width/im.width,c.height/im.height);const w=im.width*escala,h=im.height*escala;ctx.drawImage(im,(c.width-w)/2,(c.height-h)/2,w,h);}
+  async function normalizar(file){
+    if(!/^image\/(jpeg|png|webp)$/.test(file.type))throw new Error('Elige una imagen JPG, PNG o WebP.');
+    if(file.size>20*1024*1024)throw new Error('La imagen supera 20 MB. Elige una más pequeña.');
+    const u=URL.createObjectURL(file);
+    try{const im=await imagenURL(u);const escala=Math.min(1,1536/Math.max(im.naturalWidth,im.naturalHeight));const c=canvas(Math.max(1,Math.round(im.naturalWidth*escala)),Math.max(1,Math.round(im.naturalHeight*escala)));pintarImagen(c,im);return await new Promise((resolve,reject)=>c.toBlob(b=>b?resolve(b):reject(new Error('No se pudo preparar la imagen.')),'image/jpeg',.88));}
+    finally{URL.revokeObjectURL(u);}
+  }
+  async function aplicarFicha(f){
+    const version=++f.version;let temporal=null;
+    const titulo=f.local?.titulo??f.publicado?.titulo??f.def.titulo;
+    try{
+      let ruta=null;
+      if(f.local?.blob){temporal=URL.createObjectURL(f.local.blob);ruta=temporal;}
+      else if(f.publicado?.archivo){
+        const u=new URL(f.publicado.archivo,carpeta);
+        if(u.origin!==carpeta.origin||!u.href.startsWith(carpeta.href))throw new Error('La imagen publicada debe estar dentro de assets/galeriaMapas/.');ruta=u.href;
+      }
+      const im=ruta?await imagenURL(ruta):null;
+      if(liberado||version!==f.version)return;
+      if(im)pintarImagen(f.canvas,im);else dibujarInicial(f.canvas,cuadros.indexOf(f));
+      f.titulo=String(titulo).slice(0,90);rotulo(f.label,f.titulo);f.mesh.material.map.needsUpdate=true;f.cartel.material.map.needsUpdate=true;
+    }catch(e){if(!liberado&&version===f.version){dibujarInicial(f.canvas,cuadros.indexOf(f));f.mesh.material.map.needsUpdate=true;ultimoAviso=`${f.def.id}: ${e.message}`;}}
+    finally{if(temporal)URL.revokeObjectURL(temporal);}
+  }
+  async function iniciar(){
+    try{baseDatos=await abrirDB();}catch(e){persistencia=false;ultimoAviso='No se pudo activar el guardado local. Las imágenes se podrán ver durante esta sesión.';}
+    if(liberado)return;
+    const abortar=new AbortController();const limiteFetch=setTimeout(()=>abortar.abort(),10000);
+    try{
+      const r=await fetch(new URL('galeria.json',carpeta),{cache:'no-store',signal:abortar.signal});
+      if(r.ok){const datos=await r.json();if(!Array.isArray(datos.cuadros))throw new Error('galeria.json debe contener una lista cuadros.');
+        for(const item of datos.cuadros){const f=cuadros.find(c=>c.def.id===item.id);if(f)f.publicado={titulo:typeof item.titulo==='string'?item.titulo:f.def.titulo,archivo:typeof item.archivo==='string'?item.archivo:''};}}
+      else ultimoAviso='No se encontró galeria.json; puedes colocar imágenes desde el panel.';
+    }catch(e){ultimoAviso='No se pudo leer galeria.json; puedes colocar imágenes desde el panel.';}finally{clearTimeout(limiteFetch);}
+    if(liberado)return;
+    if(baseDatos){try{const guardados=await dbAccion('readonly',s=>s.getAll());for(const item of guardados??[]){const f=cuadros.find(c=>c.def.id===item.id);if(f)f.local=item;}}catch{persistencia=false;}}
+    if(liberado)return;await Promise.all(cuadros.map(aplicarFicha));if(!liberado&&abierto)actualizarPanel();
+  }
+  // Panel de edición; nunca vuelve a capturar automáticamente el mouse.
+  const id='galeria-mapas',estilo=document.createElement('style');estilo.textContent=`
+  #${id}[hidden],#${id}-acciones[hidden],#${id}-acciones button[hidden]{display:none!important}
+  #${id},#${id}-acciones{font:14px/1.5 system-ui,sans-serif;color:#f2e5ca}
+  #${id}{position:fixed;inset:0;z-index:31000;background:#10151ce8;display:grid;place-items:center;padding:16px;overflow:auto;overscroll-behavior:contain}
+  #${id} *{box-sizing:border-box}
+  #${id} .gm-caja{position:relative;width:min(900px,100%);max-height:calc(100dvh - 32px);overflow:auto;padding:26px;background:linear-gradient(135deg,#25353b,#171e27);border:1px solid #b7a06d;border-radius:18px;box-shadow:0 20px 80px #0007}
+  #${id} h2{font:30px Georgia,serif;color:#f4dfad;margin:0 40px 8px 0}
+  #${id} .gm-intro{margin:0 0 22px;color:#c9c2b3}
+  #${id} .gm-grid{display:grid;grid-template-columns:minmax(160px,300px) 1fr;gap:26px;align-items:start}
+  #${id} canvas{display:block;max-width:100%;max-height:390px;width:auto;height:auto;margin:auto;border:9px ridge #b59356;box-shadow:0 9px 28px #0008}
+  #${id} label{display:block;margin:0 0 14px;color:#e5d4ac}
+  #${id} input,#${id} select{display:block;width:100%;margin-top:5px;border:1px solid #7e806e;border-radius:7px;background:#111c25;color:#f2e5ca;padding:10px;font:14px system-ui,sans-serif;min-height:44px}
+  #${id} button,#${id}-acciones button{min-height:44px;padding:11px 15px;border:1px solid #b59b61;border-radius:9px;background:#344950;color:#f4e8ce;font:14px system-ui,sans-serif;cursor:pointer;touch-action:manipulation}
+  #${id} button:hover,#${id}-acciones button:hover{background:#49616a}
+  #${id} button:disabled{opacity:.45;cursor:wait}
+  #${id} :focus-visible,#${id}-acciones :focus-visible{outline:3px solid #f3d084;outline-offset:3px}
+  #${id} .gm-botones{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}
+  #${id} .gm-cerrar{position:absolute;top:14px;right:14px}
+  #${id} .gm-aviso{color:#dfc998;min-height:2em;white-space:pre-line}
+  #${id} .gm-nota{font-size:12px;line-height:1.65;color:#aaaeb0;border-top:1px solid #ffffff22;padding-top:14px;margin-top:16px}
+  #${id}-acciones{position:fixed;left:50%;bottom:110px;transform:translateX(-50%);z-index:26;display:flex;justify-content:center;gap:8px;flex-wrap:wrap;width:max-content;max-width:90vw}
+  #${id}-acciones button{background:#20343bee;box-shadow:0 5px 25px #0007}
+  @media(max-width:600px){#${id}{padding:7px}#${id} .gm-caja{padding:22px 15px;max-height:calc(100dvh - 14px)}#${id} .gm-grid{grid-template-columns:1fr;gap:20px}#${id} canvas{max-height:210px}#${id} h2{font-size:25px}}
+  `;document.head.appendChild(estilo);
+  const panel=document.createElement('section');panel.id=id;panel.hidden=true;panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-labelledby',id+'-titulo');
+  panel.innerHTML=`<div class="gm-caja"><button type="button" class="gm-cerrar" aria-label="Cerrar galería">Cerrar</button><h2 id="${id}-titulo">Galería de recuerdos</h2><p class="gm-intro">Elige un cuadro y coloca una imagen. Su proporción se conserva: no recortamos tu fotografía.</p><div class="gm-grid"><canvas width="768" height="768" role="img" aria-label="Vista previa del cuadro"></canvas><div><label>Cuadro<select class="gm-select"></select></label><label>Título<input class="gm-titulo" maxlength="90" type="text" autocomplete="off"></label><label>Imagen JPG, PNG o WebP<input class="gm-file" type="file" accept="image/jpeg,image/png,image/webp"></label><div class="gm-botones"><button type="button" class="gm-guardar">Guardar en este navegador</button><button type="button" class="gm-restaurar">Quitar cambio local</button></div><p class="gm-aviso" role="status" aria-live="polite"></p></div></div><p class="gm-nota">Las cargas del panel se guardan solo en este navegador, no se suben a GitHub. Para que todos vean tus imágenes, colócalas en assets/galeriaMapas/ y completa galeria.json. Las imágenes locales tienen prioridad. Si borras los datos del sitio, se eliminan sus copias locales. Esc: cerrar · R: editar cuadros · G: acariciar al perrito cuando estés cerca.</p></div>`;
+  document.body.appendChild(panel);
+  const acciones=document.createElement('div');acciones.id=id+'-acciones';acciones.hidden=true;acciones.innerHTML='<button type="button" class="gm-abrir">R · Editar cuadros</button><button type="button" class="gm-mimos">G · Acariciar al perrito</button>';document.body.appendChild(acciones);
+  const select=panel.querySelector('select'),tituloInput=panel.querySelector('.gm-titulo'),fileInput=panel.querySelector('.gm-file'),preview=panel.querySelector('canvas'),aviso=panel.querySelector('.gm-aviso');
+  const guardar=panel.querySelector('.gm-guardar'),restaurar=panel.querySelector('.gm-restaurar'),cerrarBtn=panel.querySelector('.gm-cerrar'),abrirBtn=acciones.querySelector('.gm-abrir'),mimosBtn=acciones.querySelector('.gm-mimos');
+  const menu=document.getElementById('menu');
+  cuadros.forEach((f,i)=>{const o=document.createElement('option');o.value=String(i);o.textContent=`${i+1}. ${f.titulo}`;select.appendChild(o);});
+  function actualizarPanel(){
+    if(liberado)return;const f=cuadros[seleccion];select.value=String(seleccion);tituloInput.value=f.titulo;
+    preview.width=f.canvas.width;preview.height=f.canvas.height;preview.getContext('2d').drawImage(f.canvas,0,0);preview.setAttribute('aria-label','Cuadro: '+f.titulo);
+    cuadros.forEach((c,i)=>select.options[i].textContent=`${i+1}. ${c.titulo}`);
+    aviso.textContent=cargando?'Preparando imágenes y almacenamiento…':ultimoAviso||`${f.local?'Cambio local en este navegador':f.publicado?.archivo?'Imagen publicada para los visitantes':'Ilustración de ejemplo'} · Cuadro ${seleccion+1} de ${cuadros.length}`;
+  }
+  function estadoOcupado(b){ocupado=b;guardar.disabled=restaurar.disabled=select.disabled=tituloInput.disabled=fileInput.disabled=(b||cargando);}
+  async function guardarLocal(){
+    if(cargando||ocupado||liberado)return;const f=cuadros[seleccion],titulo=tituloInput.value.trim()||f.def.titulo,file=fileInput.files?.[0];estadoOcupado(true);
+    try{
+      const blob=file?await normalizar(file):(f.local?.blob??null);if(liberado)return;
+      const ficha={id:f.def.id,titulo,blob,fecha:Date.now()};
+      let guardado=false;if(baseDatos){try{await dbAccion('readwrite',s=>s.put(ficha));guardado=true;}catch{persistencia=false;}}
+      f.local=ficha;await aplicarFicha(f);if(liberado)return;
+      ultimoAviso=guardado?'Imagen y título guardados en este navegador.':'Se muestra durante esta sesión, pero no se pudo guardar de forma persistente.';fileInput.value='';actualizarPanel();
+    }catch(e){if(!liberado)aviso.textContent=e.message;}
+    finally{if(!liberado)estadoOcupado(false);}
+  }
+  async function quitarLocal(){
+    if(cargando||ocupado||liberado)return;const f=cuadros[seleccion];if(!f.local){aviso.textContent='Este cuadro no tiene un cambio local.';return;}
+    if(!window.confirm('¿Quitar la imagen y el título locales de este cuadro? Se mostrará la versión publicada o la ilustración de ejemplo.'))return;
+    estadoOcupado(true);try{if(baseDatos)await dbAccion('readwrite',s=>s.delete(f.def.id));f.local=null;await aplicarFicha(f);ultimoAviso='Cambio local eliminado. Se muestra la versión publicada o de ejemplo.';actualizarPanel();}
+    catch(e){if(!liberado)aviso.textContent='No se pudo quitar el cambio local: '+e.message;}finally{if(!liberado)estadoOcupado(false);}
+  }
+  function abrir(n=null){
+    if(liberado||!dentro||abierto)return;if(Number.isInteger(n)&&n>=0&&n<cuadros.length)seleccion=n;
+    abierto=true;controles?.pausar?.();if(document.pointerLockElement){try{const p=document.exitPointerLock();p?.catch?.(()=>{});}catch{}}
+    acciones.hidden=true;panel.hidden=false;if(menu)menu.hidden=true;actualizarPanel();cerrarBtn.focus();
+  }
+  function cerrar(){if(!abierto)return;abierto=false;panel.hidden=true;if(menu){menu.hidden=false;document.getElementById('boton-iniciar')?.focus();}}
+  function acariciar(){if(!cercaPerro||abierto||liberado)return;mimos=4;mimosBtn.textContent='¡Le encantan los mimos!';}
+  function cercano(){let elegido=0,distancia=Infinity;cuadros.forEach((f,i)=>{const d=localCam.distanceToSquared(new THREE.Vector3(f.def.x,f.def.y,f.def.z));if(d<distancia){distancia=d;elegido=i;}});return elegido;}
+  function teclado(e){
+    if(abierto){
+      if(e.code==='Escape'){e.preventDefault();e.stopImmediatePropagation();cerrar();return;}
+      if(e.code==='Tab'){
+        const lista=[...panel.querySelectorAll('button,input,select')].filter(o=>!o.disabled&&o.getClientRects().length);const primero=lista[0],ultimo=lista[lista.length-1];
+        if(e.shiftKey&&document.activeElement===primero){e.preventDefault();ultimo.focus();}else if(!e.shiftKey&&document.activeElement===ultimo){e.preventDefault();primero.focus();}
+      }
+      if(['KeyW','KeyA','KeyS','KeyD','KeyE','KeyF','KeyR','KeyG','Space'].includes(e.code))e.stopImmediatePropagation();
+      return;
+    }
+    if(!dentro||e.repeat||['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)||document.activeElement?.isContentEditable||Boolean(menu&&!menu.hidden))return;
+    if(e.code==='KeyR'){e.preventDefault();e.stopImmediatePropagation();abrir(cercano());}
+    if(e.code==='KeyG'&&cercaPerro){e.preventDefault();e.stopImmediatePropagation();acariciar();}
+  }
+  const raycaster=new THREE.Raycaster(),centro=new THREE.Vector2(0,0);
+  function clicMundo(){if(!dentro||abierto||document.pointerLockElement!==elemento)return;raycaster.setFromCamera(centro,camara);const golpe=raycaster.intersectObjects(seleccionables,false)[0];if(golpe&&golpe.distance<10){const n=cuadros.findIndex(c=>c.mesh===golpe.object);abrir(n);}}
+  function alDesbloquear(){if(abierto&&menu)menu.hidden=true;}
+  select.addEventListener('change',()=>{seleccion=Number(select.value);fileInput.value='';ultimoAviso='';actualizarPanel();});
+  guardar.addEventListener('click',guardarLocal);restaurar.addEventListener('click',quitarLocal);cerrarBtn.addEventListener('click',cerrar);abrirBtn.addEventListener('click',()=>abrir(cercano()));mimosBtn.addEventListener('click',acariciar);
+  document.addEventListener('keydown',teclado,true);document.addEventListener('pointerlockchange',alDesbloquear);elemento.addEventListener('click',clicMundo);
+  function actualizar(dt=0){
+    if(liberado)return;const paso=Math.max(0,Math.min(Number.isFinite(dt)?dt:0,.1));reloj+=paso;mimos=Math.max(0,mimos-paso);
+    castillo.updateWorldMatrix(true,false);camara.getWorldPosition(localCam);castillo.worldToLocal(localCam);
+    dentro=localCam.x>7.3&&localCam.x<19.7&&localCam.z> -17.7&&localCam.z< -2.3&&localCam.y>10&&localCam.y<16.95;
+    cercaPerro=dentro&&Math.hypot(localCam.x-perro.position.x,localCam.z-perro.position.z)<3.0;
+    const visible=oclusion?.habitaciones?.find(h=>h.id===ROOM)?.visible??true;raiz.visible=visible;luz.visible=visible;
+    acciones.hidden=!dentro||abierto||Boolean(menu&&!menu.hidden);mimosBtn.hidden=!cercaPerro;
+    if(mimos===0)mimosBtn.textContent='G · Acariciar al perrito';
+    if(visible){
+      paraPerro.copy(localCam).sub(perro.position).applyAxisAngle(THREE.Object3D.DEFAULT_UP,-perro.rotation.y);
+      const seguir=cercaPerro?THREE.MathUtils.clamp(Math.atan2(paraPerro.x,paraPerro.z),-.42,.42):Math.sin(reloj*.5)*.07;
+      cabeza.rotation.y=THREE.MathUtils.damp(cabeza.rotation.y,seguir,4,paso);
+      cabeza.rotation.z=THREE.MathUtils.damp(cabeza.rotation.z,mimos>0 ? .15+Math.sin(reloj*3)*.06:Math.sin(reloj*.8)*.025,4,paso);
+      cabeza.rotation.x=mimos>0?Math.sin(reloj*3)*.055:Math.sin(reloj*.75)*.022;
+      cola.rotation.y=Math.sin(reloj*(mimos>0?15:cercaPerro?8:2.8))*(mimos>0 ? .65:cercaPerro ? .40:.12);
+      cuerpo.scale.y=1+Math.sin(reloj*2.3)*.009;
+      const p=reloj%5.4,b=p>5.15?1-.94*Math.sin((p-5.15)/.25*Math.PI):1;ojos.forEach(o=>o.scale.y=b);lenguaMat.opacity=mimos>0?1:0;
+    }
+    if(abierto&&!dentro)cerrar();if(abierto&&menu&&!menu.hidden)menu.hidden=true;
+  }
+  estadoOcupado(false);
+  const listo=iniciar().catch(e=>{if(!liberado)ultimoAviso='La galería sigue disponible, pero hubo un problema cargando las imágenes.';}).finally(()=>{cargando=false;if(!liberado){estadoOcupado(false);if(abierto)actualizarPanel();}});
+  const api={raiz,perro,cuadros,actualizar,abrir,cerrar,acariciar,listo,
+    vincularControles(c){controles=c;},vincularOclusion(o){oclusion=o;},
+    get abierto(){return abierto;},get persistenciaLocal(){return Boolean(baseDatos)&&persistencia;},
+    liberar(){
+      if(liberado)return;cerrar();liberado=true;cuadros.forEach(f=>f.version++);baseDatos?.close();
+      document.removeEventListener('keydown',teclado,true);document.removeEventListener('pointerlockchange',alDesbloquear);elemento.removeEventListener('click',clicMundo);
+      panel.remove();acciones.remove();estilo.remove();raiz.removeFromParent();
+      if(Array.isArray(colisiones)){for(const r of propios){const i=colisiones.indexOf(r);if(i>=0)colisiones.splice(i,1);}retirados.sort((a,b)=>a.indice-b.indice).forEach(r=>colisiones.splice(Math.min(r.indice,colisiones.length),0,r.valor));}
+      ocultos.forEach(r=>r.objeto.visible=r.visible);for(const g of geometrias)g.dispose();for(const m of materiales)m.dispose();for(const t of texturas)t.dispose();delete castillo.userData.galeriaMapas;
+    }
+  };
+  castillo.userData.galeriaMapas=api;return api;
+}

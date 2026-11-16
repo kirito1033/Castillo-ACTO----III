@@ -1,3 +1,13 @@
+import { crearEstudioMaravillas } from './estudioMaravillas.js';
+// ESTUDIO_MARAVILLAS_INTEGRADO
+import { crearSalaDeseosHogar } from './salaDeseosHogar.js';
+// SALA_DESEOS_HOGAR_INTEGRADA
+import { crearObservatorioDeseos } from './observatorioDeseos.js';
+// OBSERVATORIO_DESEOS_INTEGRADO
+import { crearSalaMapasGaleria } from './salaMapasGaleria.js';
+// SALA_MAPAS_GALERIA_INTEGRADA
+import { crearSalaConsejoPoetica } from './salaConsejoPoetica.js';
+// CONSEJO_POETICO_INTEGRADO
 import { crearBoticarioArmeria } from './boticarioArmeria.js';
 // BOTICARIO_ARMERIA_INTEGRADO
 
@@ -243,6 +253,46 @@ const ciclo = crearCicloDiaNoche(escena);
 // 08. CONTROLES Y VINCULACIÓN DE HABITACIONES
 // =============================================================
 
+const consejoPoetico = crearSalaConsejoPoetica(
+  escena,
+  camara,
+  castillo,
+  renderizador.domElement
+);
+window.bibliotecaConsejo = consejoPoetico;
+
+const galeriaMapas = crearSalaMapasGaleria(
+  escena,
+  camara,
+  castillo,
+  renderizador.domElement
+);
+window.galeriaMapas = galeriaMapas;
+
+const observatorio = crearObservatorioDeseos(
+  escena,
+  camara,
+  castillo,
+  renderizador.domElement
+);
+window.observatorioDeseos = observatorio;
+
+const salaDeseos = crearSalaDeseosHogar(
+  escena,
+  camara,
+  castillo,
+  renderizador.domElement
+);
+window.salaDeseosHogar = salaDeseos;
+
+const estudio = crearEstudioMaravillas(
+  escena,
+  camara,
+  castillo,
+  renderizador.domElement
+);
+window.estudioMaravillas = estudio;
+
 const controles = crearControles(
   camara,
   renderizador.domElement,
@@ -252,6 +302,11 @@ const controles = crearControles(
 sala.vincularControles(controles);
 comedor.vincularControles(controles);
 boticario.vincularControles(controles);
+estudio.vincularControles(controles);
+salaDeseos.vincularControles(controles);
+observatorio.vincularControles(controles);
+galeriaMapas.vincularControles(controles);
+consejoPoetico.vincularControles(controles);
 
 // =============================================================
 // 09. RENDERIZADO DINÁMICO Y AMBIENTE
@@ -285,6 +340,11 @@ const oclusion = crearOclusionHabitaciones(
 sala.vincularOclusion(oclusion);
 comedor.vincularOclusion(oclusion);
 boticario.vincularOclusion(oclusion);
+estudio.vincularOclusion(oclusion);
+salaDeseos.vincularOclusion(oclusion);
+observatorio.vincularOclusion(oclusion);
+galeriaMapas.vincularOclusion(oclusion);
+consejoPoetico.vincularOclusion(oclusion);
 
 // =============================================================
 // 11. COLISIONES Y OPTIMIZACIÓN
@@ -384,6 +444,11 @@ renderizador.setAnimationLoop(t => {
   sala.actualizar(dt);
   comedor.actualizar(dt);
   boticario.actualizar(dt);
+  estudio.actualizar(dt);
+  salaDeseos.actualizar(dt);
+  observatorio.actualizar(dt);
+  galeriaMapas.actualizar(dt);
+  consejoPoetico.actualizar(dt);
 
   // Renderizado y métricas.
   rendimiento.antes(dt);

@@ -1,0 +1,30 @@
+GALERÍA DE LA SALA DE MAPAS
+
+Para ver tus imágenes en todos los navegadores y en GitHub Pages:
+1. Coloca tus JPG, PNG o WebP en esta carpeta.
+2. Abre galeria.json y completa archivo con el nombre exacto, por ejemplo foto-1.jpg.
+3. Puedes cambiar también titulo. Conserva los identificadores cuadro-1 a cuadro-8.
+4. Sube las imágenes y galeria.json junto con los scripts actualizados a GitHub.
+5. Espera al despliegue y recarga sin caché.
+
+Ejemplo de una entrada (dentro de la lista cuadros):
+{"id":"cuadro-1","titulo":"Un viaje juntos","archivo":"foto-1.jpg"}
+
+No pongas una ruta de Windows ni una dirección /tree/main/ en archivo.
+Usa nombres sencillos, como foto-1.jpg. Las imágenes conservan su proporción.
+Un archivo vacío muestra una ilustración generada desde el código.
+
+El botón del lector guarda imágenes en IndexedDB SOLO para ese navegador y origen.
+No sube archivos a GitHub. Una carga local tiene prioridad sobre galeria.json.
+Usa Quitar cambio local para volver a ver la imagen publicada.
+Borrar los datos del sitio elimina las cargas locales.
+La opción de volver a la imagen publicada solicita confirmación.
+
+Interacción:
+R o botón: abrir la edición de los cuadros.
+Clic sobre un cuadro, con el mouse capturado: editar ese cuadro.
+G o botón, cerca del perrito: acariciarlo.
+Esc: cerrar edición. Después pulsa Continuar para volver al recorrido.
+
+El perro es un modelo geométrico 3D estilizado inspirado en la referencia,
+no un GLB fotorealista ni una reproducción exacta de la fotografía.

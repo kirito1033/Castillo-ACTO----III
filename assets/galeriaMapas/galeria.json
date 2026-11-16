@@ -1,0 +1,71 @@
+{
+  "version": 2,
+  "modo": "fijo",
+  "cuadros": [
+    {
+      "id": "cuadro-1",
+      "titulo": "Un mapa de recuerdos",
+      "archivo": "assets/imagen/salademapas/WhatsApp%20Unknown%202026-11-16%20at%2012.14.42%20PM/WhatsApp%20Image%202026-11-16%20at%2012.08.01%20PM.jpeg"
+    },
+    {
+      "id": "cuadro-2",
+      "titulo": "Instantes para guardar",
+      "archivo": "assets/imagen/salademapas/WhatsApp%20Unknown%202026-11-16%20at%2012.14.42%20PM/WhatsApp%20Image%202026-11-16%20at%2012.08.02%20PM%20(1).jpeg"
+    },
+    {
+      "id": "cuadro-3",
+      "titulo": "Un rincón para sonreír",
+      "archivo": "assets/imagen/salademapas/WhatsApp%20Unknown%202026-11-16%20at%2012.14.42%20PM/WhatsApp%20Image%202026-11-16%20at%2012.08.02%20PM%20(2).jpeg"
+    },
+    {
+      "id": "cuadro-4",
+      "titulo": "La magia de lo sencillo",
+      "archivo": "assets/imagen/salademapas/WhatsApp%20Unknown%202026-11-16%20at%2012.14.42%20PM/WhatsApp%20Image%202026-11-16%20at%2012.08.02%20PM.jpeg"
+    },
+    {
+      "id": "cuadro-5",
+      "titulo": "Donde nace la alegría",
+      "archivo": "assets/imagen/salademapas/WhatsApp%20Unknown%202026-11-16%20at%2012.14.42%20PM/WhatsApp%20Image%202026-11-16%20at%2012.08.03%20PM%20(1).jpeg"
+    },
+    {
+      "id": "cuadro-6",
+      "titulo": "Recuerdos que abrazan",
+      "archivo": "assets/imagen/salademapas/WhatsApp%20Unknown%202026-11-16%20at%2012.14.42%20PM/WhatsApp%20Image%202026-11-16%20at%2012.08.03%20PM%20(2).jpeg"
+    },
+    {
+      "id": "cuadro-7",
+      "titulo": "Un día para volver",
+      "archivo": "assets/imagen/salademapas/WhatsApp%20Unknown%202026-11-16%20at%2012.14.42%20PM/WhatsApp%20Image%202026-11-16%20at%2012.08.03%20PM%20(3).jpeg"
+    },
+    {
+      "id": "cuadro-8",
+      "titulo": "Entre luz y compañía",
+      "archivo": "assets/imagen/salademapas/WhatsApp%20Unknown%202026-11-16%20at%2012.14.42%20PM/WhatsApp%20Image%202026-11-16%20at%2012.08.03%20PM.jpeg"
+    },
+    {
+      "id": "cuadro-9",
+      "titulo": "Pequeñas grandes historias",
+      "archivo": "assets/imagen/salademapas/WhatsApp%20Unknown%202026-11-16%20at%2012.14.42%20PM/WhatsApp%20Image%202026-11-16%20at%2012.08.04%20PM%20(1).jpeg"
+    },
+    {
+      "id": "cuadro-10",
+      "titulo": "El hogar en una mirada",
+      "archivo": "assets/imagen/salademapas/WhatsApp%20Unknown%202026-11-16%20at%2012.14.42%20PM/WhatsApp%20Image%202026-11-16%20at%2012.08.04%20PM%20(2).jpeg"
+    },
+    {
+      "id": "cuadro-11",
+      "titulo": "Caminos que compartimos",
+      "archivo": "assets/imagen/salademapas/WhatsApp%20Unknown%202026-11-16%20at%2012.14.42%20PM/WhatsApp%20Image%202026-11-16%20at%2012.08.04%20PM%20(3).jpeg"
+    },
+    {
+      "id": "cuadro-12",
+      "titulo": "Un pedacito de felicidad",
+      "archivo": "assets/imagen/salademapas/WhatsApp%20Unknown%202026-11-16%20at%2012.14.42%20PM/WhatsApp%20Image%202026-11-16%20at%2012.08.04%20PM%20(4).jpeg"
+    },
+    {
+      "id": "cuadro-13",
+      "titulo": "Siempre en nuestra memoria",
+      "archivo": "assets/imagen/salademapas/WhatsApp%20Unknown%202026-11-16%20at%2012.14.42%20PM/WhatsApp%20Image%202026-11-16%20at%2012.08.04%20PM.jpeg"
+    }
+  ]
+}

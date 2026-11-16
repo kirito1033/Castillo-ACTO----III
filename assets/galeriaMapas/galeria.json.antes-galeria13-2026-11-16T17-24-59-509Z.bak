@@ -1,0 +1,44 @@
+{
+  "cuadros": [
+    {
+      "id": "cuadro-1",
+      "titulo": "El reino entre montañas",
+      "archivo": ""
+    },
+    {
+      "id": "cuadro-2",
+      "titulo": "Un puente hacia casa",
+      "archivo": ""
+    },
+    {
+      "id": "cuadro-3",
+      "titulo": "Memorias del jardín",
+      "archivo": ""
+    },
+    {
+      "id": "cuadro-4",
+      "titulo": "Nuestro pequeño refugio",
+      "archivo": ""
+    },
+    {
+      "id": "cuadro-5",
+      "titulo": "Donde viven las estrellas",
+      "archivo": ""
+    },
+    {
+      "id": "cuadro-6",
+      "titulo": "Caminos compartidos",
+      "archivo": ""
+    },
+    {
+      "id": "cuadro-7",
+      "titulo": "El horizonte nos espera",
+      "archivo": ""
+    },
+    {
+      "id": "cuadro-8",
+      "titulo": "Una ventana al recuerdo",
+      "archivo": ""
+    }
+  ]
+}
